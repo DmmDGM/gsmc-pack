@@ -43,13 +43,13 @@ export async function searchModrinth(
         name: string;
         version_number: string;
     }[];
-    if(projects.length === 0) throw new Error(`Project found but none satisfied (${trace}).`);
+    if(projects.length === 0) throw new Error(`Project found but none satisfied, check platform and version (${trace}).`);
 
     // Grabs project
     const project = override === null ?
         projects.sort((a, b) => +new Date(b.date_published) - +new Date(a.date_published))[0] :
         projects.find((project) => project.id === override);
-    if(typeof project === "undefined") throw new Error(`Project found but none matched (${trace}).`);
+    if(typeof project === "undefined") throw new Error(`Project found but none matched, check revision (${trace}).`);
     
     // Grabs file
     if(project.files.length === 0) throw new Error(`Project found but contains no files (${trace}).`);
@@ -69,16 +69,21 @@ export async function searchModrinth(
         version: version
     };
 }
-export async function downloadModrinth(entry: ModrinthEntry, keep: boolean = false): Promise<void> {
+export async function downloadModrinth(
+    entry: ModrinthEntry,
+    keep: boolean = false
+): Promise<void> {
     // Creates trace
     const trace = `${entry.tag}.${entry.platform}.${entry.version}.${entry.code}`;
 
     // Downloads jar
     const headers = new Headers();
     headers.append("user-agent", "dmmdgm/gsmc-pack (dm12332131mdgaming@gmail.com)")
-    const response = await fetch(entry.url, { headers });
+    const response = await fetch(entry.url);
+    if(!response.ok) throw new Error(`Project failed to download (${trace})!`);
     const destination = nodePath.resolve(import.meta.dir, `./pack/${entry.tag}.jar`);
-    await Bun.write(destination, response);
+    const blob = await response.blob();
+    await Bun.write(destination, blob);
     
     // Checks hash
     const jar = Bun.file(destination);
@@ -92,5 +97,6 @@ export async function downloadDirect(tag: string, url: string): Promise<void> {
     // Downloads jar
     const response = await fetch(url);
     const destination = nodePath.resolve(import.meta.dir, `./pack/${tag}.jar`);
-    await Bun.write(destination, response);
+    const blob = await response.blob();
+    await Bun.write(destination, blob);
 }
