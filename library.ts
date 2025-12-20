@@ -1,5 +1,6 @@
 // Imports
 import nodeCrypto from "node:crypto";
+import nodePath from "node:path";
 
 // Defines types
 export type ModrinthEntry = {
@@ -78,7 +79,7 @@ export async function downloadModrinth(
     // Downloads jar
     const response = await fetch(entry.url);
     if(!response.ok) throw new Error(`Project failed to download (${trace})!`);
-    const destination = Bun.resolveSync(`./pack/${entry.tag}.jar`, import.meta.dir);
+    const destination = nodePath.resolve(import.meta.dir, `./pack/${entry.tag}.jar`);
     const blob = await response.blob();
     await Bun.write(destination, blob);
     
@@ -93,7 +94,7 @@ export async function downloadModrinth(
 export async function downloadDirect(tag: string, url: string): Promise<void> {
     // Downloads jar
     const response = await fetch(url);
-    const destination = Bun.resolveSync(`./pack/${tag}.jar`, import.meta.dir);
+    const destination = nodePath.resolve(import.meta.dir, `./pack/${tag}.jar`);
     const blob = await response.blob();
     await Bun.write(destination, blob);
 }

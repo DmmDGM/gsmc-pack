@@ -1,16 +1,17 @@
 // Imports
 import nodeFile from "node:fs/promises";
+import nodePath from "node:path";
 import chalk from "chalk";
 import { downloadDirect, downloadModrinth, searchModrinth } from "./library";
 
 // Creates folder
 try {
-    await nodeFile.rm(Bun.resolveSync("./pack/", import.meta.dir), { recursive: true });
+    await nodeFile.rm(nodePath.resolve(import.meta.dir, "./pack/"), { recursive: true });
 }
 catch {
     console.warn(chalk.yellow("WARN:   No pack folder found! Creating one instead."));
 }
-await nodeFile.mkdir(Bun.resolveSync("./pack/", import.meta.dir));
+await nodeFile.mkdir(nodePath.resolve(import.meta.dir, "./pack/"));
 
 // Creates pack
 const pack: string[] = [];
