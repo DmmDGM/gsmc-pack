@@ -53,7 +53,7 @@ export async function searchModrinth(
     
     // Grabs file
     if(project.files.length === 0) throw new Error(`Project found but contains no files (${trace}).`);
-    const file = project.files.find((file) => file.primary) || project.files[0];
+    const file = project.files.find((file) => file.primary) ?? project.files[0];
     
     // Returns entry
     return {
