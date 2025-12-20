@@ -77,8 +77,6 @@ export async function downloadModrinth(
     const trace = `${entry.tag}.${entry.platform}.${entry.version}.${entry.code}`;
 
     // Downloads jar
-    const headers = new Headers();
-    headers.append("user-agent", "dmmdgm/gsmc-pack (dm12332131mdgaming@gmail.com)")
     const response = await fetch(entry.url);
     if(!response.ok) throw new Error(`Project failed to download (${trace})!`);
     const destination = nodePath.resolve(import.meta.dir, `./pack/${entry.tag}.jar`);
