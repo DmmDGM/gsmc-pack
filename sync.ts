@@ -40,7 +40,7 @@ await Promise.allSettled(pack.map(async (origin, index) => {
                 if(parameters.length < 4) throw new Error(`Invalid origin mapping (${origin}).`);
                 const [ platform, version, tag, override ] = parameters.slice(1);
                 const entry = await searchModrinth(tag, platform, version, override ?? null);
-                console.log(chalk.blue(`NOTICE: Downloading ${entry.name} (${entry.tag}) from Modrinth with platform ${entry.platform}, version ${entry.version} and size ${Math.round(entry.size / 1024 / 1024 * 100) / 100} MB.`));
+                console.log(chalk.blue(`NOTICE: Downloading ${entry.name} (${entry.tag}) from Modrinth with platform ${entry.platform}, version ${entry.version}, and size ${Math.round(entry.size / 1024 / 1024 * 100) / 100} MB.`));
                 await downloadModrinth(entry);
                 console.log(chalk.magenta(`UPDATE: Finished downloading ${entry.name} (${entry.tag}) from Modrinth.`));
                 break;
