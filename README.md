@@ -20,7 +20,8 @@ Create a `pack.json` or `pack.jsonc` file. Inside should be an array of strings.
 
 For Modrinth downloads, use `modrinth;PLATFORM;VERSION;MOD-ID` for the origin string.
 
-> [!NOTE] By default, the latest revision that matches those filters will be chosen.
+> [!NOTE]
+> By default, the latest revision that matches those filters will be chosen.
 > This can be changed by specifying a `;SPECIFIC-REVISION-CODE` after it.
 
 For direct URL downloads, use `direct;MOD-ID;URL` for the origin string.
