@@ -31,7 +31,7 @@ Your `pack.json` or `pack.jsonc` should look something like this:
 ```json
 [
     "modrinth;fabric;1.21.5;fabric-api",
-    "direct;tech-reborn;https://github.com/TechReborn/TechReborn/releases/download/5.13.4/TechReborn-5.13.4.jar",
+    "direct;tech-reborn;https://github.com/TechReborn/TechReborn/releases/download/5.13.4/TechReborn-5.13.4.jar"
 ]
 ```
 
