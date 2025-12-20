@@ -27,7 +27,7 @@ export async function searchModrinth(
     const trace = `${tag}.${platform}.${version}.${override ?? "-"}`;
     
     // Creates request
-    const request = await fetch(`https://api.modrinth.com/v2/project/${tag}/version?loader=${JSON.stringify([ platform ])}&game_versions=${JSON.stringify([ version ])}`);
+    const request = await fetch(`https://api.modrinth.com/v2/project/${tag}/version?loaders=${JSON.stringify([ platform ])}&game_versions=${JSON.stringify([ version ])}`);
     if(!request.ok) throw new Error(`No projects found (${trace}).`);
     
     // Parses projects
