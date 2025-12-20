@@ -64,4 +64,4 @@ await Promise.allSettled(pack.map(async (origin, index) => {
         console.log(chalk.red("ERROR:  " + message));
     }
 }));
-console.log(chalk.green(`FINISH: Successfully downloaded ${counter} / ${pack.length} files(s)!`));
+console.log(chalk.green(`FINISH: Successfully downloaded ${counter} / ${pack.length} file(s)!`));
