@@ -12,7 +12,9 @@
     },
     "private": true,
     "scripts": {
-        "sync": "bun run sync.ts"
+        "clean": "bun src/clean.ts",
+        "sync": "bun src/sync.ts",
+        "verify": "bun src/verify.ts"
     },
     "type": "module"
 }

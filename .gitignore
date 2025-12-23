@@ -2,3 +2,5 @@ node_modules
 pack
 pack.json
 pack.jsonc
+pack-*.json
+pack-*.jsonc
