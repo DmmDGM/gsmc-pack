@@ -30,13 +30,13 @@ await library.run(async () => {
                 }
                 
                 // Prints fail
-                const entriesPlatform = await library.modrinthSearch(label, [ platform ], []);
-                const entriesVersion = await library.modrinthSearch(label, [], [ version ]);
+                const entriesPlatforms = await library.modrinthSearch(label, [ platform ], []);
+                const entriesVersions = await library.modrinthSearch(label, [], [ version ]);
                 library.printFail(`[Modrinth] Origin ${chalk.magenta(identity)} is not supported.`);
-                if(entriesPlatform.length > 0)
-                    library.printNote(`\tLast commit for platform ${chalk.magenta(platform)} is for version(s) ${chalk.magenta(entriesPlatform[0].versions.join(", "))}.`);
-                if(entriesVersion.length > 0)
-                    library.printNote(`\tLast commit for version ${chalk.magenta(version)} is for platform(s) ${chalk.magenta(entriesVersion[0].platforms.join(", "))}.`);
+                if(entriesPlatforms.length > 0)
+                    library.printNote(`Last commit for platform ${chalk.magenta(platform)} is for version(s) ${entriesPlatforms[0].versions.map((version) => chalk.magenta(version)).join(", ")}.`, 1);
+                if(entriesVersions.length > 0)
+                    library.printNote(`Last commit for version ${chalk.magenta(version)} is for platform(s) ${entriesVersions[0].platforms.map((platform) => chalk.magenta(platform)).join(", ")}.`, 1);
                 break;
             }
             case "direct": {

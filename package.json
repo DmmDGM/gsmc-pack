@@ -14,7 +14,8 @@
     "scripts": {
         "clean": "bun src/clean.ts",
         "sync": "bun src/sync.ts",
-        "verify": "bun src/verify.ts"
+        "sniff": "bun src/sniff.ts",
+        "tree": "bun src/tree.ts"
     },
     "type": "module"
 }

@@ -16,15 +16,18 @@ export const packd = process.env.PACKD ?? "pack/";
 // Defines types
 export interface ModrinthEntry {
     as: string;
+    avoids: string[];
     date: number;
     hash: string;
     label: string;
+    needs: string[];
     platforms: string[];
     project: string;
     revision: string;
     size: number;
     url: string;
     versions: string[];
+    wants: string[];
 }
 
 // Defines modrinth api
@@ -62,8 +65,12 @@ export async function modrinthSearch(label: string, platforms: string[], version
     if(!response.ok) return [];
     
     // Creates entries response
-    const projects = await response.json() as {
+    const json = await response.json() as {
         date_published: string;
+        dependencies: {
+            dependency_type: string;
+            project_id: string;
+        }[];
         files: {
             hashes: { sha512: string; };
             filename: string;
@@ -74,26 +81,49 @@ export async function modrinthSearch(label: string, platforms: string[], version
         game_versions: string[];
         id: string;
         loaders: string[];
-        name: string;
+        project_id: string;
     }[];
-    return projects
-        .filter((project) => project.files.length > 0)
-        .map((project) => {
-            const file = project.files.find((file) => file.primary) ?? project.files[0];
+    return json
+        .filter((data) => data.files.length > 0)
+        .map((data) => {
+            const file = data.files.find((file) => file.primary) ?? data.files[0];
             return {
                 as: file.filename,
-                date: +new Date(project.date_published),
+                avoids: data.dependencies
+                    .filter((dependency) => dependency.dependency_type === "incompatible")
+                    .map((dependency) => dependency.project_id),
+                date: +new Date(data.date_published),
                 hash: file.hashes.sha512,
                 label: label,
-                platforms: project.loaders,
-                project: project.name,
-                revision: project.id,
+                needs: data.dependencies
+                    .filter((dependency) => dependency.dependency_type === "required")
+                    .map((dependency) => dependency.project_id),
+                platforms: data.loaders,
+                project: data.project_id,
+                revision: data.id,
                 size: file.size,
                 url: file.url,
-                versions: project.game_versions
+                versions: data.game_versions,
+                wants: data.dependencies
+                    .filter((dependency) => dependency.dependency_type === "optional")
+                    .map((dependency) => dependency.project_id)
             };
         })
         .sort((a, b) => b.date - a.date);
+}
+export async function modrinthLookup(project: string): Promise<string | null> {
+    // Creates url
+    const url = new URL(`https://api.modrinth.com/v2/project/${project}`);
+
+    // Creates response
+    const response = await modrinthFetch(url.toString());
+    if(!response.ok) return null;
+
+    // Fetches slug
+    const json = await response.json() as {
+        slug: string;
+    };
+    return json.slug;
 }
 
 // Defines generic api
@@ -172,27 +202,33 @@ export async function validate(destination: string, hash: string): Promise<boole
 }
 
 // Defines pretty api
-export function printError(message: string, trace: string): void {
+export function printError(message: string, trace: string, indent: number = 0): void {
     // Prints message
-    console.log(chalk.redBright(`[!] ${message} (${chalk.blue(trace)})`));
+    const tab = "    ".repeat(indent);
+    console.log(chalk.redBright(`${tab}[!] ${message} (${chalk.blue(trace)})`));
 }
-export function printWarn(message: string, trace: string): void {
+export function printWarn(message: string, trace: string, indent: number = 0): void {
     // Prints message
-    console.log(chalk.yellowBright(`[?] ${message} (${chalk.blue(trace)})`));
+    const tab = "    ".repeat(indent);
+    console.log(chalk.yellowBright(`${tab}[?] ${message} (${chalk.blue(trace)})`));
 }
-export function printFail(message: string): void {
+export function printFail(message: string, indent: number = 0): void {
     // Prints message
-    console.log(chalk.red(`[-] ${message}`));
+    const tab = "    ".repeat(indent);
+    console.log(chalk.red(`${tab}[-] ${message}`));
 }
-export function printPass(message: string): void {
+export function printPass(message: string, indent: number = 0): void {
     // Prints message
-    console.log(chalk.green(`[+] ${message}`));
+    const tab = "    ".repeat(indent);
+    console.log(chalk.green(`${tab}[+] ${message}`));
 }
-export function printNote(message: string): void {
+export function printNote(message: string, indent: number = 0): void {
     // Prints message
-    console.log(chalk.gray(`[#] ${message}`));
+    const tab = "    ".repeat(indent);
+    console.log(chalk.gray(`${tab}[#] ${message}`));
 }
-export function printYell(message: string): void {
+export function printYell(message: string, indent: number = 0): void {
     // Prints message
-    console.log(chalk.cyan(`[@] ${message}`));
+    const tab = "    ".repeat(indent);
+    console.log(chalk.cyan(`${tab}[@] ${message}`));
 }

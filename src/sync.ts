@@ -40,7 +40,8 @@ await library.run(async () => {
                 const valid = await library.validate(entry.as, entry.hash);
                 if(!valid) {
                     await library.kill(entry.as);
-                    library.printFail(`[Modrinth] Hash does not match for origin ${chalk.magenta(identity)}.`)
+                    library.printFail(`[Modrinth] Hash does not match for origin ${chalk.magenta(identity)}.`);
+                    break;
                 }
 
                 // Prints pass
