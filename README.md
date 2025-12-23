@@ -14,29 +14,56 @@ cd gsmc-pack
 bun i
 ```
 
-## Sync from Pack.json
+## Usage
 
-Create a `pack.json` or `pack.jsonc` file. Inside should be an array of strings.
+Create a `pack.jsonc` file. The file should contain an array of origin strings.
+- For Modrinth, use `modrinth;MOD-ID;PLATFORM;VERSION` for the origin string.
+- For direct URL, use `direct;MOD-ID;URL;FILE` for the origin string.
 
-For Modrinth downloads, use `modrinth;PLATFORM;VERSION;MOD-ID` for the origin string.
-
-> [!NOTE]
-> By default, the latest revision that matches those filters will be chosen.
-> This can be changed by specifying a `;SPECIFIC-REVISION-CODE` after it.
-
-For direct URL downloads, use `direct;MOD-ID;URL` for the origin string.
-
-Your `pack.json` or `pack.jsonc` should look something like this:
+Your `pack.jsonc` should look something like this:
 
 ```json
 [
-    "modrinth;fabric;1.21.5;fabric-api",
-    "direct;tech-reborn;https://github.com/TechReborn/TechReborn/releases/download/5.13.4/TechReborn-5.13.4.jar"
+    "modrinth;fabric-api;fabric;1.21.5",
+    "direct;tech-reborn;https://github.com/TechReborn/TechReborn/releases/download/5.13.4/TechReborn-5.13.4.jar;TechReborn-5.13.4.jar"
 ]
 ```
 
-Then run the following to see your `.jar`s being downloaded in the `pack` directory:
+By default, it will look for `pack.jsonc` and will place all of the results in `pack/`.
+This behavior can be changed by supplying the `PACKF` and `PACKD` environment variables.
+
+## Clean
+
+This action simply runs `rm -rf pack/`.
+
+```sh
+bun run clean
+PACKF=your-pack.jsonc PACKD=your-pack-dir bun run clean
+```
+
+## Sniff
+
+This action takes your `pack.jsonc` and checks if everything is available.
+
+```sh
+bun run sniff
+PACKF=your-pack.jsonc PACKD=your-pack-dir bun run sniff
+```
+
+## Sync
+
+This action takes your `pack.jsonc` and downloads everything inside into your `pack/` directory.
 
 ```sh
 bun run sync
+PACKF=your-pack.jsonc PACKD=your-pack-dir bun run sync
+```
+
+## Tree
+
+This action takes your `pack.jsonc` and checks the entire dependency tree.
+
+```sh
+bun run tree
+PACKF=your-pack.jsonc PACKD=your-pack-dir bun run tree
 ```
