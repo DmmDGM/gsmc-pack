@@ -1,17 +1,18 @@
 // Imports
-import chalk from "chalk";
 import * as library from "./library";
+import { glow, printAlert, printBad, printFail, printGood, printNote, printYell } from "./library";
 
-// Verifies origins
+// Runs script
 await library.run(async () => {
     // Parses origins
     const origins = await library.source();
 
     // Defines locals
-    const avoids = new Map<string, Set<string>>();
-    const needs = new Map<string, Set<string>>();
-    const wants = new Map<string, Set<string>>();
-    const list = new Set<string>();
+    const modrinthMapper = new Map<string, string>();
+    const avoided = new Map<string, Set<string>>();
+    const needed = new Map<string, Set<string>>();
+    const wanted = new Map<string, Set<string>>();
+    const labels = new Set<string>();
 
     // Executes tasks
     const tasks = origins.map(async (origin) => await library.run(async () => {
@@ -27,40 +28,31 @@ await library.run(async () => {
                 const identity = `${label}.${platform}.${version}`;
                 const entries = await library.modrinthSearch(label, [ platform ], [ version ]);
                 if(entries.length === 0) {
-                    library.printFail(`[Modrinth] Cannot find origin ${chalk.magenta(identity)}.`);
+                    printFail(`[Modrinth] Cannot find origin ${glow(identity)}.`);
                     break;
                 }
 
-                // Appends dependencies
+                // Updates dependencies
                 const entry = entries[0];
                 for(let i = 0; i < entry.avoids.length; i++) {
-                    // Fetches dependency
-                    const dependency = await library.modrinthLookup(entry.avoids[i]);
+                    const dependency = modrinthMapper.get(entry.avoids[i]) ?? await library.modrinthLookup(entry.avoids[i]);
                     if(dependency === null) continue;
-
-                    // Appends dependency
-                    const set = avoids.get(dependency) ?? new Set();
-                    avoids.set(dependency, set.add(label));
+                    modrinthMapper.set(entry.avoids[i], dependency);
+                    avoided.set(dependency, (avoided.get(dependency) ?? new Set()).add(label));
                 }
                 for(let i = 0; i < entry.needs.length; i++) {
-                    // Fetches dependency
-                    const dependency = await library.modrinthLookup(entry.needs[i]);
+                    const dependency = modrinthMapper.get(entry.needs[i]) ?? await library.modrinthLookup(entry.needs[i]);
                     if(dependency === null) continue;
-
-                    // Appends dependency
-                    const set = needs.get(dependency) ?? new Set();
-                    needs.set(dependency, set.add(label));
+                    modrinthMapper.set(entry.needs[i], dependency);
+                    needed.set(dependency, (needed.get(dependency) ?? new Set()).add(label));
                 }
                 for(let i = 0; i < entry.wants.length; i++) {
-                    // Fetches dependency
-                    const dependency = await library.modrinthLookup(entry.wants[i]);
+                    const dependency = modrinthMapper.get(entry.wants[i]) ?? await library.modrinthLookup(entry.wants[i]);
                     if(dependency === null) continue;
-
-                    // Appends dependency
-                    const set = wants.get(dependency) ?? new Set();
-                    wants.set(dependency, set.add(label));
+                    modrinthMapper.set(entry.wants[i], dependency);
+                    wanted.set(dependency, (wanted.get(dependency) ?? new Set()).add(label));
                 }
-                list.add(label);
+                labels.add(label);
                 break;
             }
             case "direct": {
@@ -68,18 +60,17 @@ await library.run(async () => {
                 if(parameters.length < 3) throw new library.MalformedOriginError(origin);
                 const [ label, url, as ] = parameters;
 
-                // Prints pass
+                // Checks response
                 const identity = `${label}.${url}`;
                 const response = await fetch(url);
                 if(!response.ok) {
-                    library.printFail(`[Direct] Origin ${chalk.magenta(identity)} is not reachable.`);
+                    printFail(`[Direct] Origin ${glow(identity)} is not reachable.`);
                     break;
                 }
 
-                // Appends depencies
-                list.add(label);
+                // Updates dependencies
+                labels.add(label);
                 break;
-                
             }
             default: {
                 // Throws error
@@ -89,17 +80,33 @@ await library.run(async () => {
     }));
     await Promise.all(tasks);
     
-    // Prints message
-    list.forEach((label) => {
-        library.printYell(`Dependency tree for origin ${chalk.magenta(label)}.`);
-        (avoids.get(label) ?? new Set()).forEach((dependency) => {
-            library.printFail(`Avoided by dependency ${chalk.magenta(dependency)}.`, 1);
-        });
-        (needs.get(label) ?? new Set()).forEach((dependency) => {
-            library.printPass(`Needs dependency ${chalk.magenta(dependency)}.`, 1);
-        });
-        (wants.get(label) ?? new Set()).forEach((dependency) => {
-            library.printNote(`Wants dependency ${chalk.magenta(dependency)}.`, 1);
-        });
+    // Prints supply messages
+    labels.forEach((child) => {
+        let total = 0;
+        total += (needed.get(child) ?? new Set()).size;
+        total += (wanted.get(child) ?? new Set()).size;
+        if(total === 0) printAlert(`[Supply] Dependency ${glow(child)} is not marked as required or optional by any origins.`);
+        else {
+            (needed.get(child) ?? new Set()).forEach((parent) => printGood(`[Supply] Dependency ${glow(child)} is marked as required by origin ${glow(parent)}.`));
+            (avoided.get(child) ?? new Set()).forEach((parent) => printBad(`[Supply] Dependency ${glow(child)} is marked as conflicting by by origin ${glow(parent)}.`));
+            (wanted.get(child) ?? new Set()).forEach((parent) => printNote(`[Supply] Dependency ${glow(child)} is marked as optional by origin ${glow(parent)}.`));
+        }
     });
+
+    // Print demand messages
+    needed.forEach((parents, child) => {
+        if(!labels.has(child))
+            parents.forEach((parent) => printBad(`[Demand] Dependency ${glow(child)} is marked as required by origin ${glow(parent)} but does not exist.`));
+    });
+    avoided.forEach((parents, child) => {
+        if(labels.has(child))
+            parents.forEach((parent) => printBad(`[Demand] Dependency ${glow(child)} exists but is marked as conflicting by origin ${glow(parent)}.`));
+    });
+    wanted.forEach((parents, child) => {
+        if(!labels.has(child))
+            parents.forEach((parent) => printNote(`[Demand] Dependency ${glow(child)} is marked as optional by origin ${glow(parent)} but does not exist.`));
+    });
+
+    // Print message
+    printYell(`${labels.size} / ${origins.length} origin(s) scanned.`);
 });

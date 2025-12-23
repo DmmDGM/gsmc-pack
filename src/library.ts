@@ -202,33 +202,53 @@ export async function validate(destination: string, hash: string): Promise<boole
 }
 
 // Defines pretty api
+export function glow(text: string): string {
+    // Styles text
+    return chalk.magenta(text);
+}
+export function printAlert(message: string, indent: number = 0): void {
+    // Prints message
+    const tab = "    ".repeat(indent);
+    console.log(chalk.rgb(0, 127, 191)(`${tab}[%] ${message}`));
+}
+export function printBad(message: string, indent: number = 0): void {
+    // Prints message
+    const tab = "    ".repeat(indent);
+    console.log(chalk.rgb(223, 0, 63)(`${tab}[✗] ${message}`));
+}
 export function printError(message: string, trace: string, indent: number = 0): void {
     // Prints message
     const tab = "    ".repeat(indent);
     console.log(chalk.redBright(`${tab}[!] ${message} (${chalk.blue(trace)})`));
-}
-export function printWarn(message: string, trace: string, indent: number = 0): void {
-    // Prints message
-    const tab = "    ".repeat(indent);
-    console.log(chalk.yellowBright(`${tab}[?] ${message} (${chalk.blue(trace)})`));
 }
 export function printFail(message: string, indent: number = 0): void {
     // Prints message
     const tab = "    ".repeat(indent);
     console.log(chalk.red(`${tab}[-] ${message}`));
 }
-export function printPass(message: string, indent: number = 0): void {
+export function printGood(message: string, indent: number = 0): void {
     // Prints message
     const tab = "    ".repeat(indent);
-    console.log(chalk.green(`${tab}[+] ${message}`));
+    console.log(chalk.rgb(0, 223, 63)(`${tab}[✓] ${message}`));
 }
 export function printNote(message: string, indent: number = 0): void {
     // Prints message
     const tab = "    ".repeat(indent);
     console.log(chalk.gray(`${tab}[#] ${message}`));
 }
+export function printPass(message: string, indent: number = 0): void {
+    // Prints message
+    const tab = "    ".repeat(indent);
+    console.log(chalk.green(`${tab}[+] ${message}`));
+}
+export function printWarn(message: string, trace: string, indent: number = 0): void {
+    // Prints message
+    const tab = "    ".repeat(indent);
+    console.log(chalk.yellowBright(`${tab}[?] ${message} (${chalk.blue(trace)})`));
+}
 export function printYell(message: string, indent: number = 0): void {
     // Prints message
     const tab = "    ".repeat(indent);
     console.log(chalk.cyan(`${tab}[@] ${message}`));
 }
+

@@ -1,8 +1,8 @@
 // Imports
-import chalk from "chalk";
 import * as library from "./library";
+import { glow, printFail, printNote, printPass, printYell } from "./library";
 
-// Verifies origins
+// Runs script
 await library.run(async () => {
     // Parses origins
     const origins = await library.source();
@@ -24,7 +24,7 @@ await library.run(async () => {
                 const identity = `${label}.${platform}.${version}`;
                 const entriesExact = await library.modrinthSearch(label, [ platform ], [ version ]);
                 if(entriesExact.length > 0) {
-                    library.printPass(`[Modrinth] Origin ${chalk.magenta(identity)} is supported.`);
+                    printPass(`[Modrinth] Origin ${glow(identity)} is supported.`);
                     counter++;
                     break;
                 }
@@ -32,11 +32,11 @@ await library.run(async () => {
                 // Prints fail
                 const entriesPlatforms = await library.modrinthSearch(label, [ platform ], []);
                 const entriesVersions = await library.modrinthSearch(label, [], [ version ]);
-                library.printFail(`[Modrinth] Origin ${chalk.magenta(identity)} is not supported.`);
+                printFail(`[Modrinth] Origin ${glow(identity)} is not supported.`);
                 if(entriesPlatforms.length > 0)
-                    library.printNote(`Last commit for platform ${chalk.magenta(platform)} is for version(s) ${entriesPlatforms[0].versions.map((version) => chalk.magenta(version)).join(", ")}.`, 1);
+                    printNote(`Last commit for platform ${glow(platform)} is for version(s) ${entriesPlatforms[0].versions.map(glow).join(", ")}.`, 1);
                 if(entriesVersions.length > 0)
-                    library.printNote(`Last commit for version ${chalk.magenta(version)} is for platform(s) ${entriesVersions[0].platforms.map((platform) => chalk.magenta(platform)).join(", ")}.`, 1);
+                    printNote(`Last commit for version ${glow(version)} is for platform(s) ${entriesVersions[0].platforms.map(glow).join(", ")}.`, 1);
                 break;
             }
             case "direct": {
@@ -48,13 +48,13 @@ await library.run(async () => {
                 const identity = `${label}.${url}`;
                 const response = await fetch(url);
                 if(response.ok) {
-                    library.printPass(`[Direct] Origin ${chalk.magenta(identity)} is reachable.`);
+                    printPass(`[Direct] Origin ${glow(identity)} is reachable.`);
                     counter++;
                     break;
                 }
 
-                // Prints pass
-                library.printFail(`[Direct] Origin ${chalk.magenta(identity)} is not reachable.`);
+                // Prints fail
+                printFail(`[Direct] Origin ${glow(identity)} is not reachable.`);
                 break;
             }
             default: {
@@ -66,5 +66,5 @@ await library.run(async () => {
     await Promise.all(tasks);
     
     // Prints message
-    library.printYell(`${counter} / ${origins.length} origin(s) passed.`);
+    printYell(`${counter} / ${origins.length} origin(s) passed.`);
 });

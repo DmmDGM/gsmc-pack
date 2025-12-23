@@ -1,8 +1,8 @@
 // Imports
-import chalk from "chalk";
 import * as library from "./library";
+import { glow, printFail, printPass, printYell } from "./library";
 
-// Verifies origins
+// Runs script
 await library.run(async () => {
     // Parses origins
     const origins = await library.source();
@@ -24,7 +24,7 @@ await library.run(async () => {
                 const identity = `${label}.${platform}.${version}`;
                 const entries = await library.modrinthSearch(label, [ platform ], [ version ]);
                 if(entries.length === 0) {
-                    library.printFail(`[Modrinth] Cannot find origin ${chalk.magenta(identity)}.`);
+                    printFail(`[Modrinth] Cannot find origin ${glow(identity)}.`);
                     break;
                 }
 
@@ -32,7 +32,7 @@ await library.run(async () => {
                 const entry = entries[0];
                 const status = await library.download(entry.as, entry.url);
                 if(!status) {
-                    library.printFail(`[Modrinth] Failed to sync origin ${chalk.magenta(identity)}.`);
+                    printFail(`[Modrinth] Failed to sync origin ${glow(identity)}.`);
                     break;
                 }
 
@@ -40,13 +40,13 @@ await library.run(async () => {
                 const valid = await library.validate(entry.as, entry.hash);
                 if(!valid) {
                     await library.kill(entry.as);
-                    library.printFail(`[Modrinth] Hash does not match for origin ${chalk.magenta(identity)}.`);
+                    printFail(`[Modrinth] Hash does not match for origin ${glow(identity)}.`);
                     break;
                 }
 
                 // Prints pass
                 const size = `${Math.round(entry.size / 1024 / 1024 * 100) / 100} MiB`;
-                library.printPass(`[Modrinth] Successfully synced origin ${chalk.magenta(identity)} (${chalk.magenta(size)}).`);
+                printPass(`[Modrinth] Successfully synced origin ${glow(identity)} (${glow(size)}).`);
                 counter++;
                 break;
             }
@@ -59,12 +59,12 @@ await library.run(async () => {
                 const identity = `${label}.${url}`;
                 const status = await library.download(as, url);
                 if(!status) {
-                    library.printFail(`[Direct] Failed to sync origin ${chalk.magenta(identity)}.`);
+                    printFail(`[Direct] Failed to sync origin ${glow(identity)}.`);
                     break;
                 }
 
                 // Prints pass
-                library.printPass(`[Direct] Successfully synced origin ${chalk.magenta(identity)}.`);
+                printPass(`[Direct] Successfully synced origin ${glow(identity)}.`);
                 counter++;
                 break;
             }
@@ -77,5 +77,5 @@ await library.run(async () => {
     await Promise.all(tasks);
     
     // Prints message
-    library.printYell(`${counter} / ${origins.length} origin(s) synced.`);
+    printYell(`${counter} / ${origins.length} origin(s) synced.`);
 });
