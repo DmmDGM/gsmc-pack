@@ -4,6 +4,13 @@
 
 An automatic scrpit to check or download necessary Minecraft resources from various platforms.
 
+| Supported Platform | Supported Resource |
+| - | - |
+| Direct URL | Any |
+| Modrinth | Mods, Modpacks, Plugins, Datapacks, Resourcepacks, Shaders |
+
+(Maybe eventually I will support Curseforge but their API is 🗑️.)
+
 ## Table of Contents
 
 - [Installation](#installation)
@@ -11,6 +18,7 @@ An automatic scrpit to check or download necessary Minecraft resources from vari
 - [Dependency Scan](#dependency-scan)
 - [Synchronize Pack](#synchronize-pack)
 - [Origin Test](#origin-test)
+- [Advanced Setup](#advanced-setup)
 
 ## Installation
 
