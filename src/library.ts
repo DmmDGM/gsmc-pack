@@ -352,7 +352,7 @@ export async function sync(packet: Packet): Promise<void> {
         case "assume": {
             // Prints status
             const assumePacket = packet as AssumePacket;
-            good(`Origin ${glow(assumePacket.origin)} is assumed to exist.`);
+            hint(`Origin ${glow(assumePacket.origin)} is assumed to exist.`);
             break;
         }
         case "direct": {
