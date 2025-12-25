@@ -1,6 +1,6 @@
 // Imports
 import nodePath from "node:path";
-import { bad, crash, fail, glow, good, hint, note, pass } from "./pretty";
+import { bad, err, fail, glow, good, hint, note, pass } from "./pretty";
 
 // Defines packet interface
 export interface Packet {
@@ -139,7 +139,7 @@ export async function resolve<Type>(promises: Promise<Type>[]): Promise<Type[]> 
             results.push(await promise);
         }
         catch(error) {
-            crash(error instanceof Error ? error.message : String(error));
+            err(error instanceof Error ? error.message : String(error));
         }
     }));
     return results;
