@@ -1,5 +1,4 @@
 // Imports
-import nodeCrypto from "node:crypto";
 import nodePath from "node:path";
 import { bad, crash, fail, glow, good, hint, note, pass } from "./pretty";
 
@@ -383,7 +382,7 @@ export async function sync(packet: Packet): Promise<void> {
             await file.write(bytes);
             
             // Checks hash
-            const hash = nodeCrypto.createHash("sha512").update(Buffer.from(bytes)).digest("hex");
+            const hash = new Bun.CryptoHasher("sha512").update(Buffer.from(bytes)).digest("hex");
             if(hash !== modrinthPacket.hash) {
                 await file.delete();
                 throw new Error(`Origin ${glow(modrinthPacket.origin)} leads to a corrupted file.`);
@@ -405,7 +404,7 @@ export async function test(packet: Packet): Promise<void> {
         case "assume": {
             // Prints status
             const assumePacket = packet as AssumePacket;
-            hint(`Origin ${glow(assumePacket.origin)} is cannot be tested.`);
+            hint(`Origin ${glow(assumePacket.origin)} cannot be tested.`);
             break;
         }
         case "direct": {

@@ -2,7 +2,7 @@
 
 ## About
 
-An automatic scrpit to check or download necessary Minecraft resources from various platforms.
+An automatic script to check or download necessary Minecraft resources from various platforms.
 
 | Supported Platform | Supported Resource |
 | - | - |
@@ -47,7 +47,7 @@ Origin strings are separated by `;` and follow the below format:
 | `$LABEL` | The ID of the origin as found in its corresponding database. | `fabric-api`, `sodium`, `ae2` |
 | `$URL` | The direct URL of the origin. | `https://github.com/TechReborn/TechReborn/releases/download/5.13.4/TechReborn-5.13.4.jar`, `https://github.com/TeamMidnightDust/BetterLeavesLite/archive/refs/heads/main.zip` |
 | `$PLATFORM` | The loader the origin is supposed to run on. | `fabric`, `neoforge`, `minecraft`, `optifine`, `iris` |
-| `$VERSION` | The Minecraft vrsion the origin is supposed to run on. | `1.21.1`, `1.20-pre1`, `22w42a` |
+| `$VERSION` | The Minecraft version the origin is supposed to run on. | `1.21.1`, `1.20-pre1`, `22w42a` |
 
 Example `pack.jsonc`:
 
