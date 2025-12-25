@@ -12,10 +12,9 @@
     },
     "private": true,
     "scripts": {
-        "clean": "bun src/clean.ts",
+        "scan": "bun src/scan.ts",
         "sync": "bun src/sync.ts",
-        "sniff": "bun src/sniff.ts",
-        "tree": "bun src/tree.ts"
+        "test": "bun src/test.ts"
     },
     "type": "module"
 }
