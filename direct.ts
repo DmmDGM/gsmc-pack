@@ -23,12 +23,12 @@ export class Direct implements Source {
     }
 
     // Defines souce methods
-    async dep(): Promise<boolean> {
+    async dep(pack: Pack): Promise<boolean> {
         // Skips dep
         hint(`Origin ${glow(this.origin)} is a direct source, skipping sync.`);
         return true;
     }
-    async sync(): Promise<boolean> {
+    async sync(pack: Pack): Promise<boolean> {
         // Checks file
         const file = Bun.file(nodePath.resolve(flags["pack-directory"], this.as));
         if(!flags["force-sync"] && await file.exists()) {
@@ -52,7 +52,7 @@ export class Direct implements Source {
         pass(`Origin ${glow(this.origin)} synced, file size ${glow(size)} MiB.`);
         return true;
     }
-    async test(): Promise<boolean> {
+    async test(pack: Pack): Promise<boolean> {
         // Checks response
         const response = await fetch(this.url, { method: "HEAD" });
         if(!response.ok) {
@@ -61,7 +61,7 @@ export class Direct implements Source {
         }
 
         // Prints result
-        pass(`Origin ${glow(this.origin)} passes, resource reachable.`);
+        pass(`Origin ${glow(this.origin)} passes, resource is reachable.`);
         return true;
     }
 }

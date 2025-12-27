@@ -25,6 +25,12 @@ export const parser = nodeUtil.parseArgs({
             short: "f",
             type: "string"
         },
+        "show-nearest": {
+            default: false,
+            multiple: false,
+            short: "N",
+            type: "boolean"
+        },
         "structured": {
             default: false,
             multiple: false,

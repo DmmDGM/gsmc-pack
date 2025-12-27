@@ -15,17 +15,17 @@ export class Assume implements Source {
     }
 
     // Defines source methods
-    async dep(): Promise<boolean> {
+    async dep(pack: Pack): Promise<boolean> {
         // Skips dep
         hint(`Origin ${glow(this.origin)} is an assumed source, skipping dep.`);
         return true;
     }
-    async sync(): Promise<boolean> {
+    async sync(pack: Pack): Promise<boolean> {
         // Skips sync
         hint(`Origin ${glow(this.origin)} is an assumed source, skipping sync.`);
         return true;
     }
-    async test(): Promise<boolean> {
+    async test(pack: Pack): Promise<boolean> {
         // Skips test
         hint(`Origin ${glow(this.origin)} is an assumed source, skipping test.`);
         return true;

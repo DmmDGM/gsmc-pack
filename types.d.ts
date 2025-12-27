@@ -6,10 +6,13 @@ interface ModrinthDetails {
         needs: string[];
         wants: string[];
     };
+    label: string;
     hash: string;
+    platforms: string[];
     size: number;
     type: string;
     url: string;
+    versions: string[];
 }
 interface ModrinthProject {
     additional_categories: string[];

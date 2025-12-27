@@ -1,8 +1,8 @@
 // Imports
 import nodePath from "node:path";
-import { fail, glow, hint, pass } from "./pretty";
+import { bad, err, fail, glow, good, hint, note, pass } from "./pretty";
 import { flags } from "./runtime";
-import { fmap } from "./toolbox";
+import { fmap, fsettle } from "./toolbox";
 
 // Defines modrinth source
 export class Modrinth implements Source {
@@ -25,16 +25,20 @@ export class Modrinth implements Source {
     }
     
     // Defines modrinth methods
-    static async details(slug: string, loader: string, gameVersion: string) {
+    static async details(slug: string, loader: string | null, gameVersion: string | null, order: number = 1) {
+        // Parses queries
+        const loaders = loader !== null ? [ loader ] : null;
+        const gameVersions = gameVersion !== null ? [ gameVersion ] : null;
+
         // Fetches project
         const project = await Modrinth.project(slug);
         if(project === null) return null;
         
         // Fetches version
-        const versions = await Modrinth.versions(slug, [ loader ], [ gameVersion ])
+        const versions = await Modrinth.versions(slug, loaders, gameVersions)
             .then((result) => result !== null ? result.filter((version) => version.files.length > 0) : null);
-        if(versions === null) return null;
-        const version = versions.sort((a, b) => +new Date(b.date_published) - +new Date(a.date_published))[0];
+        if(versions === null || versions.length < 1) return null;
+        const version = versions.sort((a, b) => order * (+new Date(b.date_published) - +new Date(a.date_published)))[0];
         const file = version.files.find((file) => file.primary) ?? version.files[0];
 
         // Creates details
@@ -46,9 +50,12 @@ export class Modrinth implements Source {
                 wants: fmap(version.dependencies, (dependency) => dependency.dependency_type === "optional" ? dependency.project_id : null)
             },
             hash: file.hashes.sha512,
+            label: project.slug,
+            platforms: version.loaders,
             size: file.size,
             type: project.project_type,
             url: file.url,
+            versions: version.game_versions
         };
         return details;
     }
@@ -68,7 +75,9 @@ export class Modrinth implements Source {
             const ratelimit = response.headers.get("x-ratelimit-remaining")!;
             if(parseInt(ratelimit) < 1) {
                 const timeout = response.headers.get("x-ratelimit-reset")!;
-                await Bun.sleep(parseInt(timeout) * 1000 + 1000);
+                const duration = parseInt(timeout) * 1000 + 1000;
+                err(`Modrinth ratelimit reached! Retrying in ${duration} ms.`);
+                await Bun.sleep(duration);
                 continue;
             }
             
@@ -79,7 +88,7 @@ export class Modrinth implements Source {
     }
     static async project(slug: string) {
         // Initializes response
-        const url = new URL(`./project/${slug}`);
+        const url = new URL(`./project/${slug}`, Modrinth.api);
 
         // Creates respones
         const response = await Modrinth.fetch(url);
@@ -105,38 +114,51 @@ export class Modrinth implements Source {
     }
 
     // Defines source methods
-    async dep(): Promise<boolean> {
+    async dep(pack: Pack): Promise<boolean> {
+        // Fetches details
+        const details = await Modrinth.details(this.label, this.platform, this.version);
+        if(details === null) {
+            fail(`Cannot check dependencies of origin ${glow(this.origin)}, not supported on Modrinth.`);
+            return false;
+        }
+
+        // Maps dependencies
+        const avoids = await fsettle(details.dependency.avoids.map(async (avoid) => {
+            const project = await Modrinth.project(avoid);
+            return project !== null ? project.slug : null;
+        }));
+        const needs = await fsettle(details.dependency.needs.map(async (need) => {
+            const project = await Modrinth.project(need);
+            return project !== null ? project.slug : null;
+        }));
+        const wants = await fsettle(details.dependency.needs.map(async (want) => {
+            const project = await Modrinth.project(want);
+            return project !== null ? project.slug : null;
+        }));
+
+        // Checks satisfied
+        const satisfied = avoids.every((avoid) => !pack.labels.has(avoid)) && wants.every((need) => pack.labels.has(need));
         
-
-        // // Checks dependencies
-        // const dependencies = flags["check-dependency"] ? await Modrinth.dependencies(details) : null;
-        // const satisfied = dependencies === null ? true :
-        //     Object.values(dependencies.avoids).every((included) => !included) &&
-        //     Object.values(dependencies.needs).every((included) => included);
-
-        // // Prints result
-        // if(!satisfied) fail(`Origin ${blue(this.origin)} fails, dependencies not satisfied.`);
-        // else pass(`Origin ${blue(this.origin)} passes.`);
-        // if(dependencies !== null) {
-        //     for(let dependency in dependencies.needs) {
-        //         const included = dependencies.needs[dependency];
-        //         if(included) good(`Dependency ${dependency} is required and included.`, 1);
-        //         else bad(`Dependency ${dependency} is required but not included.`, 1);
-        //     }
-        //     for(let dependency in dependencies.avoids) {
-        //         const included = dependencies.avoids[dependency];
-        //         if(included) bad(`Dependency ${dependency} is incompatible but included.`, 1);
-        //         else good(`Dependency ${dependency} is incompatible and not included.`, 1);
-        //     }
-        //     for(let dependency in dependencies.wants) {
-        //         const included = dependencies.wants[dependency];
-        //         if(included) good(`Dependency ${dependency} is optional and included.`, 1);
-        //         else note(`Dependency ${dependency} is optional but not included.`, 1);
-        //     }
-        // }
-        return false;
+        // Prints result
+        if(satisfied) pass(`Origin ${glow(this.origin)} is satisfied.`);
+        else fail(`Origin ${glow(this.origin)} is not satisfied.`);
+        
+        // Prints tree
+        for(const need in needs) {
+            if(pack.labels.has(need)) good(`Dependency ${glow(need)} is required and included.`, 1);
+            else bad(`Dependency ${glow(need)} is required but not included.`, 1); 
+        }
+        for(const avoid in avoids) {
+            if(pack.labels.has(avoid)) bad(`Dependency ${glow(avoid)} is incompatible but included.`, 1);
+            else good(`Dependency ${glow(avoid)} is incompatible and not included.`, 1); 
+        }
+        for(const want in wants) {
+            if(pack.labels.has(want)) good(`Dependency ${glow(want)} is optional and included.`, 1);
+            else note(`Dependency ${glow(want)} is optional but not included.`, 1); 
+        }
+        return satisfied;
     }
-    async sync(): Promise<boolean> {
+    async sync(pack: Pack): Promise<boolean> {
         // Fetches details
         const details = await Modrinth.details(this.label, this.platform, this.version);
         if(details === null) {
@@ -175,10 +197,40 @@ export class Modrinth implements Source {
         pass(`Origin ${glow(this.origin)} synced, file size ${glow(size)} MiB.`);
         return true;
     }
-    async test(): Promise<boolean> {
+    async test(pack: Pack): Promise<boolean> {
         // Checks details
         const details = await Modrinth.details(this.label, this.platform, this.version);
         if(details === null) {
+            // Checks nearest
+            if(flags["show-nearest"]) {
+                // Checks project
+                const project = await Modrinth.project(this.label);
+                if(project === null) {
+                    fail(`Origin ${glow(this.origin)} fails, not found on Modrinth.`);
+                    return false;
+                } 
+
+                // Checks platforms
+                const platforms = Object.fromEntries(
+                    await fsettle(project.loaders.map(async (loader) => {
+                        const newest = await Modrinth.details(this.label, loader, null, 1);
+                        const oldest = await Modrinth.details(this.label, loader, null, -1);
+                        if(newest === null || oldest === null) return null;
+                        return [ loader, { oldest: oldest.versions, newest: newest.versions } ] as const;
+                    }))
+                );
+
+                // Prints result
+                fail(`Origin ${glow(this.origin)} fails, not supported on Modrinth.`);
+                for(const platform in platforms) {
+                    const oldest = platforms[platform].oldest.join(", ");
+                    const newest = platforms[platform].newest.join(", ");
+                    hint(`Origin ${glow(this.origin)} supports platform ${glow(platform)}, version ${glow(oldest)} - ${glow(newest)}.`, 1);
+                }
+                return false;
+            }
+
+            // Prints result
             fail(`Origin ${glow(this.origin)} fails, not supported on Modrinth.`);
             return false;
         }
@@ -191,7 +243,7 @@ export class Modrinth implements Source {
         }
 
         // Prints result
-        pass(`Origin ${glow(this.origin)} passes, resource reachable.`);
+        pass(`Origin ${glow(this.origin)} passes, resource is reachable.`);
         return true;
     }
 }
