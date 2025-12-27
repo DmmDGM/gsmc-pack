@@ -25,41 +25,19 @@ export class Modrinth implements Source {
     }
     
     // Defines modrinth methods
-    static async details(slug: string, loader: string | null, gameVersion: string | null, order: number = 1) {
-        // Parses queries
-        const loaders = loader !== null ? [ loader ] : null;
-        const gameVersions = gameVersion !== null ? [ gameVersion ] : null;
+    static async dependencies(label: string) {
+        // Creates respones
+        const response = await Modrinth.fetch(`./project/${label}/dependencies`);
+        if(response === null || !response.ok) return null;
 
-        // Fetches project
-        const project = await Modrinth.project(slug);
-        if(project === null) return null;
-        
-        // Fetches version
-        const versions = await Modrinth.versions(slug, loaders, gameVersions)
-            .then((result) => result !== null ? result.filter((version) => version.files.length > 0) : null);
-        if(versions === null || versions.length < 1) return null;
-        const version = versions.sort((a, b) => order * (+new Date(b.date_published) - +new Date(a.date_published)))[0];
-        const file = version.files.find((file) => file.primary) ?? version.files[0];
-
-        // Creates details
-        const details: ModrinthDetails = {
-            as: file.filename,
-            dependency: {
-                avoids: fmap(version.dependencies, (dependency) => dependency.dependency_type === "incompatible" ? dependency.project_id : null),
-                needs: fmap(version.dependencies, (dependency) => dependency.dependency_type === "required" ? dependency.project_id : null),
-                wants: fmap(version.dependencies, (dependency) => dependency.dependency_type === "optional" ? dependency.project_id : null)
-            },
-            hash: file.hashes.sha512,
-            label: project.slug,
-            platforms: version.loaders,
-            size: file.size,
-            type: project.project_type,
-            url: file.url,
-            versions: version.game_versions
+        // Parses result
+        const result = await response.json() as {
+            projects: ModrinthAPIProject[];
+            versions: ModrinthAPIVersion[];
         };
-        return details;
+        return result;
     }
-    static async fetch(endpoint: URL | string, options: RequestInit = {}) {
+    static async fetch(endpoint: string, options: RequestInit = {}) {
         // Initializes response
         const url = new URL(endpoint, Modrinth.api);
         const init = structuredClone(options);
@@ -76,7 +54,7 @@ export class Modrinth implements Source {
             if(parseInt(ratelimit) < 1) {
                 const timeout = response.headers.get("x-ratelimit-reset")!;
                 const duration = parseInt(timeout) * 1000 + 1000;
-                err(`Modrinth ratelimit reached! Retrying in ${duration} ms.`);
+                err(`Modrinth ratelimit reached, refetching endpoint ${glow(endpoint)} in ${duration} ms.`);
                 await Bun.sleep(duration);
                 continue;
             }
@@ -84,32 +62,27 @@ export class Modrinth implements Source {
             // Returns response
             return response;
         }
+
+        // Stops fetch
+        err(`Modrinth ratelimit reached, failed to fetch endpoint ${glow(endpoint)} in time.`);
         return null;
     }
-    static async project(slug: string) {
-        // Initializes response
-        const url = new URL(`./project/${slug}`, Modrinth.api);
-
+    static async project(label: string) {
         // Creates respones
-        const response = await Modrinth.fetch(url);
+        const response = await Modrinth.fetch(`./project/${label}`);
         if(response === null || !response.ok) return null;
 
         // Parses result
-        const result = await response.json() as ModrinthProject;
+        const result = await response.json() as ModrinthAPIProject;
         return result;
     }
-    static async versions(slug: string, loaders: string[] | null, gameVersions: string[] | null) {
-        // Initializes response
-        const url = new URL(`./project/${slug}/version`, Modrinth.api);
-        if(loaders !== null) url.searchParams.append("loaders", JSON.stringify(loaders));
-        if(gameVersions !== null) url.searchParams.append("game_versions", JSON.stringify(gameVersions));
-        
+    static async versions(label: string, platforms: string[] | null, versions: string[] | null) {        
         // Creates response
-        const response = await Modrinth.fetch(url);
+        const response = await Modrinth.fetch(`./project/${label}/version?loaders=${JSON.stringify(platforms)}&game_versions=${JSON.stringify(versions)}`);
         if(response === null || !response.ok) return null;
 
         // Parses result
-        const result = await response.json() as ModrinthVersion[];
+        const result = await response.json() as ModrinthAPIVersion[];
         return result;
     }
 

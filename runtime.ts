@@ -7,6 +7,12 @@ export const parser = nodeUtil.parseArgs({
     allowPositionals: true,
     args: Bun.argv,
     options: {
+        "client": {
+            default: false,
+            multiple: false,
+            short: "C",
+            type: "boolean"
+        },
         "force-sync": {
             default: false,
             multiple: false,
@@ -25,6 +31,12 @@ export const parser = nodeUtil.parseArgs({
             short: "f",
             type: "string"
         },
+        "server": {
+            default: false,
+            multiple: false,
+            short: "S",
+            type: "boolean"
+        },
         "show-nearest": {
             default: false,
             multiple: false,
@@ -34,7 +46,7 @@ export const parser = nodeUtil.parseArgs({
         "structured": {
             default: false,
             multiple: false,
-            short: "S",
+            short: "M",
             type: "boolean"
         }
     },

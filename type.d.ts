@@ -1,20 +1,5 @@
-// Defines modrinth types
-interface ModrinthDetails {
-    as: string;
-    dependency: {
-        avoids: string[];
-        needs: string[];
-        wants: string[];
-    };
-    label: string;
-    hash: string;
-    platforms: string[];
-    size: number;
-    type: string;
-    url: string;
-    versions: string[];
-}
-interface ModrinthProject {
+// Defines modrinth api types
+interface ModrinthAPIProject {
     additional_categories: string[];
     approved: string | null;
     body: string;
@@ -50,8 +35,8 @@ interface ModrinthProject {
     };
     loaders: string[];
     moderator_message: {
-        message: string;
         body: string | null;
+        message: string;
     };
     monetization_status: string;
     organization: null;
@@ -69,8 +54,8 @@ interface ModrinthProject {
     updated: string;
     versions: string[];
     wiki_url: string | null;
-}
-interface ModrinthVersion {
+} 
+interface ModrinthAPIVersion {
     author_id: string;
     changelog: string | null;
     changelog_url: string | null;
