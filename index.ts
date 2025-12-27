@@ -6,19 +6,19 @@ import chalk from "chalk";
 
 // Defines colors
 const blue = chalk.hex("#4f4fdf");
+const burn = chalk.hex("#ff4f4f");
 const cyan = chalk.hex("#2f8fdf");
-const fish = chalk.hex("#df4f4f");
+const dusk = chalk.hex("#df4f4f");
 const gray = chalk.hex("#4f4f4f");
 const lime = chalk.hex("#00df4f");
-const mars = chalk.hex("#ff4f4f");
 const mint = chalk.hex("#2fbf8f");
 const pink = chalk.hex("#df4fdf");
 const rose = chalk.hex("#df004f");
 
 // Defines print
-const bad  = (message: unknown, indent: number = 0) => print(fish, "✗", message, indent);
+const bad  = (message: unknown, indent: number = 0) => print(dusk, "✗", message, indent);
 const err  = (message: unknown, indent: number = 0) => print(rose, "!", message, indent);
-const fail = (message: unknown, indent: number = 0) => print(mars, "-", message, indent);
+const fail = (message: unknown, indent: number = 0) => print(burn, "-", message, indent);
 const good = (message: unknown, indent: number = 0) => print(mint, "✓", message, indent);
 const hint = (message: unknown, indent: number = 0) => print(pink, "%", message, indent);
 const note = (message: unknown, indent: number = 0) => print(gray, "#", message, indent);
@@ -40,41 +40,10 @@ async function settle<Type>(promises: Promise<Type>[]): Promise<Type[]> {
         })
         .map((result) => result.value);
 }
-
-// Defines arguments
-const { values: flags, positionals: [ bun, entry, ...args ] } = nodeUtil.parseArgs({
-    allowNegative: false,
-    allowPositionals: true,
-    args: Bun.argv,
-    options: {
-        "check-dependency": {
-            default: false,
-            multiple: false,
-            short: "D",
-            type: "boolean"
-        },
-        "force-sync": {
-            default: false,
-            multiple: false,
-            short: "F",
-            type: "boolean"
-        },
-        "pack-directory": {
-            default: "pack/",
-            multiple: false,
-            short: "d",
-            type: "string"
-        },
-        "pack-file": {
-            default: "pack.jsonc",
-            multiple: false,
-            short: "f",
-            type: "string"
-        }
-    },
-    strict: true,
-    tokens: false
-});
+function warp<In, Out>(array: In[], callback: (value: In, index: number, array: In[]) => Out): NonNullable<Out>[] {
+    // Warps array
+    return array.map(callback).filter((value) => typeof value !== "undefined" && value !== null);
+}
 
 // Defines source classes
 class Assume implements Source {
@@ -148,7 +117,7 @@ class Direct implements Source {
         await file.write(bytes);
 
         // Prints result
-        pass(`Successfully synced origin ${blue(this.origin)}, file size ${blue(size)} MiB.`);
+        pass(`Origin ${blue(this.origin)} synced, file size ${blue(size)} MiB.`);
         return true;
     }
     async test(): Promise<boolean> {
@@ -160,7 +129,7 @@ class Direct implements Source {
         }
 
         // Prints result
-        pass(`Origin ${blue(this.origin)} passes.`);
+        pass(`Origin ${blue(this.origin)} passes, resource reachable.`);
         return true;
     }
 }
@@ -184,34 +153,7 @@ class Modrinth implements Source {
     }
     
     // Defines modrinth methods
-    static async dependencies(details: ModrinthDetails): Promise<ModrinthDependencies> {
-        // Defines dependency helper
-        const treeDependencies = async (ids: string[]) => {
-            const slugs = await Promise.allSettled(
-                ids.map((id) => Modrinth.slug(id).then((slug) => {
-                    if(slug === null) err(`Unknown Modrinth dependency id ${blue(id)}.`);
-                    return slug;
-                }))
-            ).then((promises) => promises
-                .filter((promise) => {
-                    if(promise.status === "rejected") err(promise.reason);
-                    return promise.status === "fulfilled";
-                })
-                .map((promise) => promise.value)
-                .filter((slug) => slug !== null)
-            );
-            return Object.fromEntries(slugs.map((slug) => [ slug, labels.has(slug) ] as const));
-        };
-
-        // Parses dependencies
-        const dependencies: ModrinthDependencies = {
-            avoids: await treeDependencies(details.dependency.avoids),
-            needs: await treeDependencies(details.dependency.needs),
-            wants: await treeDependencies(details.dependency.wants)
-        };
-        return dependencies;
-    }
-    static async details(slug: string, loader: string, gameVersion: string): Promise<ModrinthDetails | null> {
+    static async details(slug: string, loader: string, gameVersion: string) {
         // Fetches versions
         const result = await Modrinth.versions(slug, [ loader ], [ gameVersion ]);
         if(result === null) return null;
@@ -246,7 +188,7 @@ class Modrinth implements Source {
         };
         return details;
     }
-    static async fetch(endpoint: URL | string, options: RequestInit = {}): Promise<Response> {
+    static async fetch(endpoint: URL | string, options: RequestInit = {}) {
         // Initializes response
         const url = new URL(endpoint, Modrinth.api);
         const init = structuredClone(options);
@@ -271,7 +213,7 @@ class Modrinth implements Source {
         }
         throw new Error(`Unable to fetch Modrinth endpoint ${blue(endpoint)}.`);
     }
-    static async project(slug: string): Promise<ModrinthProject | null> {
+    static async project(slug: string) {
         // Creates respones
         const url = new URL(`./project/${slug}`, Modrinth.api);
         const response = await Modrinth.fetch(url);
@@ -281,15 +223,7 @@ class Modrinth implements Source {
         const result = await response.json() as ModrinthProject;
         return result;
     }
-    static async slug(id: string): Promise<string | null> {
-        // Fetches project
-        const project = await Modrinth.project(id);
-        if(project === null) return null;
-
-        // Parses slug
-        return project.slug;
-    }
-    static async versions(slug: string, loaders: string[] | null, gameVersions: string[] | null): Promise<ModrinthVersion[] | null> {
+    static async versions(slug: string, loaders: string[] | null, gameVersions: string[] | null) {
         // Creates response
         const url = new URL(`./project/${slug}/version`, Modrinth.api);
         if(loaders !== null) url.searchParams.append("loaders", JSON.stringify(loaders));
@@ -303,6 +237,37 @@ class Modrinth implements Source {
     }
 
     // Defines origin methods
+    async dep(): Promise<boolean> {
+        
+
+        // // Checks dependencies
+        // const dependencies = flags["check-dependency"] ? await Modrinth.dependencies(details) : null;
+        // const satisfied = dependencies === null ? true :
+        //     Object.values(dependencies.avoids).every((included) => !included) &&
+        //     Object.values(dependencies.needs).every((included) => included);
+
+        // // Prints result
+        // if(!satisfied) fail(`Origin ${blue(this.origin)} fails, dependencies not satisfied.`);
+        // else pass(`Origin ${blue(this.origin)} passes.`);
+        // if(dependencies !== null) {
+        //     for(let dependency in dependencies.needs) {
+        //         const included = dependencies.needs[dependency];
+        //         if(included) good(`Dependency ${dependency} is required and included.`, 1);
+        //         else bad(`Dependency ${dependency} is required but not included.`, 1);
+        //     }
+        //     for(let dependency in dependencies.avoids) {
+        //         const included = dependencies.avoids[dependency];
+        //         if(included) bad(`Dependency ${dependency} is incompatible but included.`, 1);
+        //         else good(`Dependency ${dependency} is incompatible and not included.`, 1);
+        //     }
+        //     for(let dependency in dependencies.wants) {
+        //         const included = dependencies.wants[dependency];
+        //         if(included) good(`Dependency ${dependency} is optional and included.`, 1);
+        //         else note(`Dependency ${dependency} is optional but not included.`, 1);
+        //     }
+        // }
+        return false;
+    }
     async sync(): Promise<boolean> {
         // Fetches details
         const details = await Modrinth.details(this.label, this.platform, this.version);
@@ -339,7 +304,7 @@ class Modrinth implements Source {
         }
 
         // Prints result
-        pass(`Successfully synced origin ${blue(this.origin)}, file size ${blue(size)} MiB.`);
+        pass(`Origin ${blue(this.origin)} synced, file size ${blue(size)} MiB.`);
         return true;
     }
     async test(): Promise<boolean> {
@@ -357,35 +322,46 @@ class Modrinth implements Source {
             return false;
         }
 
-        // Checks dependencies
-        const dependencies = flags["check-dependency"] ? await Modrinth.dependencies(details) : null;
-        const satisfied = dependencies === null ? true :
-            Object.values(dependencies.avoids).every((included) => !included) &&
-            Object.values(dependencies.needs).every((included) => included);
-
         // Prints result
-        if(!satisfied) fail(`Origin ${blue(this.origin)} fails, dependencies not satisfied.`);
-        else pass(`Origin ${blue(this.origin)} passes.`);
-        if(dependencies !== null) {
-            for(let dependency in dependencies.needs) {
-                const included = dependencies.needs[dependency];
-                if(included) good(`Dependency ${dependency} is required and included.`, 1);
-                else bad(`Dependency ${dependency} is required but not included.`, 1);
-            }
-            for(let dependency in dependencies.avoids) {
-                const included = dependencies.avoids[dependency];
-                if(included) bad(`Dependency ${dependency} is incompatible but included.`, 1);
-                else good(`Dependency ${dependency} is incompatible and not included.`, 1);
-            }
-            for(let dependency in dependencies.wants) {
-                const included = dependencies.wants[dependency];
-                if(included) good(`Dependency ${dependency} is optional and included.`, 1);
-                else note(`Dependency ${dependency} is optional but not included.`, 1);
-            }
-        }
+        pass(`Origin ${blue(this.origin)} passes, resource reachable.`);
         return true;
     }
 }
+
+// Parses arguments
+const { values: flags, positionals: [ bun, entry, ...args ] } = nodeUtil.parseArgs({
+    allowNegative: false,
+    allowPositionals: true,
+    args: Bun.argv,
+    options: {
+        "force-sync": {
+            default: false,
+            multiple: false,
+            short: "F",
+            type: "boolean"
+        },
+        "pack-directory": {
+            default: "pack/",
+            multiple: false,
+            short: "d",
+            type: "string"
+        },
+        "pack-file": {
+            default: "pack.jsonc",
+            multiple: false,
+            short: "f",
+            type: "string"
+        },
+        "structured": {
+            default: false,
+            multiple: false,
+            short: "S",
+            type: "boolean"
+        }
+    },
+    strict: true,
+    tokens: false
+});
 
 // Parses origins
 const patterns = {
@@ -399,7 +375,7 @@ const origins: string[] = await (import(nodePath.resolve(flags["pack-file"])) as
         err(`Cannot find pack file ${blue(flags["pack-file"])}.`);
         process.exit(1);
     });
-const sources = origins.map((origin) => {
+const sources = warp(origins, (origin) => {
     // Parses origin
     const [ method, ...parameters ] = origin.split(";");
     for(const pattern in patterns) {
@@ -418,7 +394,7 @@ const sources = origins.map((origin) => {
         return Reflect.construct(Source, [ origin, ...parameters ]) as InstanceType<typeof Source>;
     }
     return null;
-}).filter((source) => source !== null);
+});
 const labels = new Set(sources.map((source) => source.label));
 
 // Runs script
