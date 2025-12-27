@@ -1,6 +1,6 @@
 // Imports
 import nodePath from "node:path";
-import { bad, err, fail, glow, good, hint, note, pass } from "./pretty";
+import { bad, err, fail, glow, good, hint, note, pass } from "../pretty";
 
 // Defines packet interface
 export interface Packet {
