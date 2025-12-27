@@ -1,9 +1,4 @@
 // Defines modrinth interfaces
-interface ModrinthDependencies {
-    avoids: Record<string, boolean>;
-    needs: Record<string, boolean>;
-    wants: Record<string, boolean>;
-}
 interface ModrinthDetails {
     as: string;
     dependency: {
@@ -105,15 +100,4 @@ interface ModrinthVersion {
     status: string;
     version_number: string;
     version_type: string;
-}
-
-// Defines source interface
-interface Source {
-    // Defines origin fields
-    readonly origin: string;
-    
-    // Defines origin methods
-    dep(): Promise<boolean>;
-    sync(): Promise<boolean>;
-    test(): Promise<boolean>;
 }

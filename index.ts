@@ -1,10 +1,48 @@
 // Import
+import type { ChalkInstance } from "chalk";
 import nodePath from "node:path";
 import nodeUtil from "node:util";
-import { bad, err, fail, glow, good, hint, note, pass, say } from "./pretty";
+import chalk from "chalk";
 
-// Defines globals
-export const { values: flags, positionals: args } = nodeUtil.parseArgs({
+// Defines colors
+const blue = chalk.hex("#4f4fdf");
+const cyan = chalk.hex("#2f8fdf");
+const fish = chalk.hex("#df4f4f");
+const gray = chalk.hex("#4f4f4f");
+const lime = chalk.hex("#00df4f");
+const mars = chalk.hex("#ff4f4f");
+const mint = chalk.hex("#2fbf8f");
+const pink = chalk.hex("#df4fdf");
+const rose = chalk.hex("#df004f");
+
+// Defines print
+const bad  = (message: unknown, indent: number = 0) => print(fish, "✗", message, indent);
+const err  = (message: unknown, indent: number = 0) => print(rose, "!", message, indent);
+const fail = (message: unknown, indent: number = 0) => print(mars, "-", message, indent);
+const good = (message: unknown, indent: number = 0) => print(mint, "✓", message, indent);
+const hint = (message: unknown, indent: number = 0) => print(pink, "%", message, indent);
+const note = (message: unknown, indent: number = 0) => print(gray, "#", message, indent);
+const pass = (message: unknown, indent: number = 0) => print(lime, "+", message, indent);
+const say  = (message: unknown, indent: number = 0) => print(cyan, "@", message, indent);
+
+// Defines helpers
+function print(color: ChalkInstance, symbol: string, message: unknown, indent: number = 0): void {
+    // Prints message
+    console.log("    ".repeat(indent) + color(`[${symbol}] ${message}`));
+}
+async function settle<Type>(promises: Promise<Type>[]): Promise<Type[]> {
+    // Settles promises
+    const results = await Promise.allSettled(promises);
+    return results
+        .filter((result) => {
+            if(result.status === "rejected") err(result.reason);
+            return result.status === "fulfilled";
+        })
+        .map((result) => result.value);
+}
+
+// Defines arguments
+const { values: flags, positionals: [ bun, entry, ...args ] } = nodeUtil.parseArgs({
     allowNegative: false,
     allowPositionals: true,
     args: Bun.argv,
@@ -38,11 +76,8 @@ export const { values: flags, positionals: args } = nodeUtil.parseArgs({
     tokens: false
 });
 
-// Defines helpers
-export 
-
 // Defines source classes
-export class Assume implements Source {
+class Assume implements Source {
     // Defines origin fields
     readonly origin: string;
     readonly label: string;
@@ -54,46 +89,56 @@ export class Assume implements Source {
     }
 
     // Defines origin methods
+    async dep(): Promise<boolean> {
+        // Skips sync
+        hint(`Origin ${blue(this.origin)} is an assumed source, skipping dep.`);
+        return true;
+    }
     async sync(): Promise<boolean> {
         // Skips sync
-        hint(`Origin ${glow(this.origin)} is assumed, skipping sync.`);
+        hint(`Origin ${blue(this.origin)} is an assumed source, skipping sync.`);
         return true;
     }
     async test(): Promise<boolean> {
         // Skips test
-        hint(`Origin ${glow(this.origin)} is assumed, skipping test.`);
+        hint(`Origin ${blue(this.origin)} is an assumed source, skipping test.`);
         return true;
     }
 }
-export class Direct implements Source {
+class Direct implements Source {
     // Defines origin fields
     readonly origin: string;
     readonly label: string;
     readonly url: string;
     readonly as: string;
+    readonly type: string;
 
     // Defines constructor
-    constructor(origin: string, label: string, url: string, as: string) {
+    constructor(origin: string, label: string, url: string, as: string, type: string) {
         // Updates origin fields
         this.origin = origin;
         this.label = label;
         this.url = url;
         this.as = as;
+        this.type = type;
     }
 
     // Defines origin methods
+    async dep(): Promise<boolean> {
+        return false;
+    }
     async sync(): Promise<boolean> {
         // Checks file
         const file = Bun.file(nodePath.resolve(flags["pack-directory"], this.as));
         if(!flags["force-sync"] && await file.exists()) {
-            hint(`Origin ${glow(this.origin)} already exists, skipping sync.`);
+            hint(`Origin ${blue(this.origin)} already exists, skipping sync.`);
             return true;
         }
 
         // Creates response
         const response = await fetch(this.url);
         if(!response.ok) {
-            fail(`Failed to sync origin ${glow(this.origin)}, leads to a corrupted url.`);
+            fail(`Failed to sync origin ${blue(this.origin)}, leads to a corrupted url.`);
             return false;
         }
 
@@ -103,23 +148,23 @@ export class Direct implements Source {
         await file.write(bytes);
 
         // Prints result
-        pass(`Successfully synced origin ${glow(this.origin)}, file size ${glow(size)} MiB.`);
+        pass(`Successfully synced origin ${blue(this.origin)}, file size ${blue(size)} MiB.`);
         return true;
     }
     async test(): Promise<boolean> {
         // Checks response
         const response = await fetch(this.url, { method: "HEAD" });
         if(!response.ok) {
-            fail(`Origin ${glow(this.origin)} fails, leads to a corrupted url.`);
+            fail(`Origin ${blue(this.origin)} fails, leads to a corrupted url.`);
             return false;
         }
 
         // Prints result
-        pass(`Origin ${glow(this.origin)} passes.`);
+        pass(`Origin ${blue(this.origin)} passes.`);
         return true;
     }
 }
-export class Modrinth implements Source {
+class Modrinth implements Source {
     // Defines origin fields
     readonly origin: string;
     readonly label: string;
@@ -144,7 +189,7 @@ export class Modrinth implements Source {
         const treeDependencies = async (ids: string[]) => {
             const slugs = await Promise.allSettled(
                 ids.map((id) => Modrinth.slug(id).then((slug) => {
-                    if(slug === null) err(`Unknown Modrinth dependency id ${glow(id)}.`);
+                    if(slug === null) err(`Unknown Modrinth dependency id ${blue(id)}.`);
                     return slug;
                 }))
             ).then((promises) => promises
@@ -224,7 +269,7 @@ export class Modrinth implements Source {
             // Returns response
             return response;
         }
-        throw new Error(`Unable to fetch Modrinth endpoint ${glow(endpoint)}.`);
+        throw new Error(`Unable to fetch Modrinth endpoint ${blue(endpoint)}.`);
     }
     static async project(slug: string): Promise<ModrinthProject | null> {
         // Creates respones
@@ -262,21 +307,21 @@ export class Modrinth implements Source {
         // Fetches details
         const details = await Modrinth.details(this.label, this.platform, this.version);
         if(details === null) {
-            fail(`Failed to sync origin ${glow(this.origin)}, not supported on Modrinth.`);
+            fail(`Failed to sync origin ${blue(this.origin)}, not supported on Modrinth.`);
             return false;
         }
 
         // Checks file
         const file = Bun.file(nodePath.resolve(flags["pack-directory"], details.as));
         if(!flags["force-sync"] && await file.exists()) {
-            hint(`Origin ${glow(this.origin)} already exists, skipping sync.`);
+            hint(`Origin ${blue(this.origin)} already exists, skipping sync.`);
             return true;
         }
         
         // Creates response
         const response = await fetch(details.url);
         if(!response.ok) {
-            fail(`Failed to sync origin ${glow(this.origin)}, leads to a corrupted url.`);
+            fail(`Failed to sync origin ${blue(this.origin)}, leads to a corrupted url.`);
             return false;
         }
 
@@ -289,26 +334,26 @@ export class Modrinth implements Source {
         const hash = new Bun.CryptoHasher("sha512").update(Buffer.from(bytes)).digest("hex");
         if(hash !== details.hash) {
             await file.delete();
-            fail(`Failed to sync origin ${glow(this.origin)}, hash check failed.`);
+            fail(`Failed to sync origin ${blue(this.origin)}, hash check failed.`);
             return false;
         }
 
         // Prints result
-        pass(`Successfully synced origin ${glow(this.origin)}, file size ${glow(size)} MiB.`);
+        pass(`Successfully synced origin ${blue(this.origin)}, file size ${blue(size)} MiB.`);
         return true;
     }
     async test(): Promise<boolean> {
         // Checks details
         const details = await Modrinth.details(this.label, this.platform, this.version);
         if(details === null) {
-            fail(`Origin ${glow(this.origin)} fails, not supported on Modrinth.`);
+            fail(`Origin ${blue(this.origin)} fails, not supported on Modrinth.`);
             return false;
         }
 
         // Checks response
         const response = await fetch(details.url, { method: "HEAD" });
         if(!response.ok) {
-            fail(`Origin ${glow(this.origin)} fails, leads to a corrupted url.`);
+            fail(`Origin ${blue(this.origin)} fails, leads to a corrupted url.`);
             return false;
         }
 
@@ -319,8 +364,8 @@ export class Modrinth implements Source {
             Object.values(dependencies.needs).every((included) => included);
 
         // Prints result
-        if(!satisfied) fail(`Origin ${glow(this.origin)} fails, dependencies not satisfied.`);
-        else pass(`Origin ${glow(this.origin)} passes.`);
+        if(!satisfied) fail(`Origin ${blue(this.origin)} fails, dependencies not satisfied.`);
+        else pass(`Origin ${blue(this.origin)} passes.`);
         if(dependencies !== null) {
             for(let dependency in dependencies.needs) {
                 const included = dependencies.needs[dependency];
@@ -343,100 +388,56 @@ export class Modrinth implements Source {
 }
 
 // Parses origins
-export const origins: string[] = [];
-try {
-    const result = await import(nodePath.resolve(flags["pack-file"])) as { default: string[]; };
-    Object.assign(origins, result.default);
-}
-catch {
-    err(`Cannot find pack file ${glow(flags["pack-file"])}.`);
-    process.exit(1);
-}
-
-// Parses sources
-export const sources: Source[] = [];
-for(let i = 0; i < origins.length; i++) {
+const patterns = {
+    "assume;$LABEL": Assume,
+    "direct;$LABEL;$URL;$AS;$TYPE": Direct,
+    "modrinth;$LABEL;$PLATFORM;$VERSION": Modrinth
+} as const;
+const origins: string[] = await (import(nodePath.resolve(flags["pack-file"])) as Promise<{ default: string[]; }>)
+    .then((result) => Object.assign([], result.default))
+    .catch(() => {
+        err(`Cannot find pack file ${blue(flags["pack-file"])}.`);
+        process.exit(1);
+    });
+const sources = origins.map((origin) => {
     // Parses origin
-    const origin = origins[i];
     const [ method, ...parameters ] = origin.split(";");
-    switch(method) {
-        case "assume": {
-            // Checks parameters
-            if(parameters.length < 1) {
-                err(`Origin ${glow(origin)} is missing parameters, expects ${glow("assume;$LABLE")}.`);
-                break;
-            }
+    for(const pattern in patterns) {
+        // Checks method
+        const [ type, ...expects ] = pattern.split(";");
+        if(method !== type) continue;
 
-            // Creates source
-            const [ label ] = parameters;
-            sources.push(new Assume(origin, label));
-            break;
+        // Checks parameters
+        if(parameters.length < expects.length) {
+            err(`Origin ${blue(origin)} is invalid, expects pattern ${blue(pattern)}.`);
+            return null;
         }
-        case "direct": {
-            // Checks parameters
-            if(parameters.length < 3) {
-                err(`Origin ${glow(origin)} is missing parameters, expects ${glow("direct;$LABEL;$URL;$AS")}.`);
-                break;
-            }
 
-            // Creates source
-            const [ label, url, as ] = parameters;
-            sources.push(new Direct(origin, label, url, as));
-            break;
-        }
-        case "modrinth": {
-            // Checks parameters
-            if(parameters.length < 3) {
-                err(`Origin ${glow(origin)} is missing parameters, expects ${glow("modrinth;$LABEL;$PLATFORM;$VERSION")}.`);
-                break;
-            }
-
-            // Creates source
-            const [ label, platform, version ] = parameters;
-            sources.push(new Modrinth(origin, label, platform, version));
-            break;
-        }
-        default: {
-            // Prints error
-            err(`Invalid origin ${glow(origin)}, unknown method ${glow(method)}`);
-            break;
-        }
+        // Creates source
+        const Source = patterns[pattern as keyof typeof patterns];
+        return Reflect.construct(Source, [ origin, ...parameters ]) as InstanceType<typeof Source>;
     }
-}
-
-// Parses extras
-export const labels = new Set(sources.filter((source) => "label" in source).map((source) => source.label));
+    return null;
+}).filter((source) => source !== null);
+const labels = new Set(sources.map((source) => source.label));
 
 // Runs script
 if(import.meta.main) {
-    const action = args[2];
+    const action = args[0];
+
     switch(action) {
         case "sync": {
-            const promises = await Promise.allSettled(sources.map((source) => source.sync()));
-            const results = promises.map((promise) => {
-                if(promise.status === "rejected") {
-                    err(promise.reason);
-                    return false;
-                }
-                return promise.value;
-            });
-            say(`Total of ${results.filter((result) => result).length} / ${sources.length} origins synced.`);
+            const results = await settle(sources.map((source) => source.sync()));
+            say(`Total of ${results.filter((result) => result).length} / ${origins.length} origins synced.`);
             break;
         }
         case "test": {
-            const promises = await Promise.allSettled(sources.map((source) => source.test()));
-            const results = promises.map((promise) => {
-                if(promise.status === "rejected") {
-                    err(promise.reason);
-                    return false;
-                }
-                return promise.value;
-            });
-            say(`Total of ${results.filter((result) => result).length} / ${sources.length} origins passed.`);
+            const results = await settle(sources.map((source) => source.test()));
+            say(`Total of ${results.filter((result) => result).length} / ${origins.length} origins passed.`);
             break;
         }
         default: {
-            bad(`Invalid command, unknown action ${glow(action)}.`);
+            bad(`Invalid command, unknown action ${blue(action)}.`);
             break;
         }
     }
