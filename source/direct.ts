@@ -1,25 +1,44 @@
 // Imports
 import nodePath from "node:path";
-import { fail, glow, hint, pass } from "./pretty";
-import { flags } from "./runtime";
+import NodeCache from "node-cache";
+import Source from "../library/source";
+import { cfetch } from "../library/internet";
 
 // Defines direct source
 export class Direct implements Source {
+    // Defines cache
+    static readonly cache = new NodeCache();
+
     // Defines source fields
     readonly origin: string;
     readonly label: string;
+    readonly type: string;
     readonly url: string;
     readonly as: string;
-    readonly type: string;
 
     // Defines constructor
-    constructor(origin: string, label: string, url: string, as: string, type: string) {
+    constructor(origin: string, label: string, type: string, url: string, as: string) {
         // Updates source fields
         this.origin = origin;
         this.label = label;
+        this.type = type;
         this.url = url;
         this.as = as;
-        this.type = type;
+    }
+
+    // Defines helper methods
+    async bytes(): Promise<Uint8Array<ArrayBuffer> | null> {
+        // Creates request
+        const url = new URL(this.url);
+        const request = new Request(url);
+
+        // Creates response
+        const response = await cfetch(request);
+        if(!response.ok) return null;
+
+        // Creates bytes
+        const bytes = await response.bytes();
+        return bytes;
     }
 
     // Defines souce methods
@@ -30,7 +49,7 @@ export class Direct implements Source {
     }
     async sync(pack: Pack): Promise<boolean> {
         // Checks file
-        const file = Bun.file(nodePath.resolve(flags["pack-directory"], this.as));
+        const file = Bun.file(nodePath.resolve(pack.flags["pack-directory"], this.as));
         if(!flags["force-sync"] && await file.exists()) {
             hint(`Origin ${glow(this.origin)} already exists, skipping sync.`);
             return true;
