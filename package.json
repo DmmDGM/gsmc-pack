@@ -12,10 +12,6 @@
         "typescript": "^5.9.3"
     },
     "private": true,
-    "scripts": {
-        "scan": "bun src/scan.ts",
-        "sync": "bun src/sync.ts",
-        "test": "bun src/test.ts"
-    },
+    "scripts": {},
     "type": "module"
 }
