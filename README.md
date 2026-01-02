@@ -56,6 +56,7 @@ bunx gsmc-pack [--flags...]
     [
         // Examples
         "fabric-api;modrinth;fabric;1.21.5",
+        "travelersbackpack;modrinth;fabric;1.21.5",
         "complementary-reimagined;modrinth;iris;1.21.5",
         "default-dark-mode;modrinth;minecraft;1.21.5",
         "tech-reborn;download;mod;https://github.com/TechReborn/TechReborn/releases/download/5.13.4/TechReborn-5.13.4.jar"
@@ -68,4 +69,4 @@ bunx gsmc-pack [--flags...]
 
 ---
 
-###### Last Updated: 2026-01-02 02:21 (EST).
+###### Last Updated: 2026-01-02 03:10 (EST).

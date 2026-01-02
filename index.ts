@@ -50,11 +50,6 @@ const err = (message: unknown) => console.error(flags["nyaa"] ? `${message} ${re
 const log = (message: unknown) => console.log(flags["nyaa"] ? `${message} ${pink("Nyaa~! :3")}` : message);
 const warn = (message: unknown) => alert(flags["nyaa"] ? `${message} ${pink("Nywa!!!")}` : message);
 
-// Defines cache
-const filenames: Set<string> = new Set();
-const rejects: Set<string> = new Set();
-const targets: Set<string> = new Set();
-
 // Defines paths
 const packd = nodePath.resolve(flags["directory"]);
 const packf = nodePath.resolve(flags["file"]);
@@ -283,10 +278,15 @@ if(flags["version"]) {
     process.exit(0);
 }
 
-// Fetches origins
-const origins: string[] = [];
-try { const result = await import(packf) as { default: string[]; }; Object.assign(origins, result.default); }
+// Fetches list
+const list: string[] = [];
+try { const result = await import(packf) as { default: string[]; }; Object.assign(list, result.default); }
 catch { throw new Error(`File ${blue(packf)} is not found.`); }
+
+// Defines cache
+const finals: Map<string, string> = new Map();
+const origins: Map<string, string> = new Map();
+const rejects: Set<string> = new Set();
 
 // Cleans directory
 if(flags["clean"] && !flags["test"]) {
@@ -296,15 +296,34 @@ if(flags["clean"] && !flags["test"]) {
     log(red(`[!] Cleared directory ${blue(packd)}.`));
 }
 
-// Evaluates origins
-for(const origin of origins) {
+// Registers origins
+for(const origin of list) {
     try {
         // Parses origin
-        const { $TARGET, $METHOD } = parseOrigin(origin, [ "$TARGET", "$METHOD" ] as const);
-        if(targets.has($TARGET)) {
+        const { $TARGET } = parseOrigin(origin, [ "$TARGET" ] as const);
+        
+        // Checks duplicate
+        if(origins.has($TARGET)) {
             log(dim(`[#] Duplicate found for target ${blue($TARGET)}, skipped.`));
             continue;
         }
+
+        // Appends origin
+        origins.set($TARGET, origin);
+    }
+    catch(error) {
+        // Prints error
+        err(red(`[-] Origin ${blue(origin)} failed.`));
+        if(flags["verbose"])
+            err(red(dim(`    [-] ${error instanceof Error ? error.message : String(error)}`)));
+    }
+}
+
+// Evaluates origins
+for(const origin of origins.values()) {
+    try {
+        // Parses origin
+        const { $TARGET, $METHOD } = parseOrigin(origin, [ "$TARGET", "$METHOD" ] as const);
         
         // Evaluates origin
         switch($METHOD) {
@@ -325,15 +344,13 @@ for(const origin of origins) {
                     case flags["test"]: {
                         // Prints conclusion
                         log(green(`[+] Target ${blue($TARGET)} is okay.`));
-                        filenames.add(file.name ?? "file");
-                        targets.add($TARGET);
+                        finals.set($TARGET, file.name ?? "file");
                         continue;
                     }
                     case await file.exists() && !flags["force"]: {
                         // Prints conclusion
                         log(dim(`[#] Target ${blue($TARGET)} already exists, filename ${blue(file.name ?? "file")}.`));
-                        filenames.add(file.name ?? "file");
-                        targets.add($TARGET);
+                        finals.set($TARGET, file.name ?? "file");
                         continue;
                     }
                     default: {
@@ -348,8 +365,7 @@ for(const origin of origins) {
 
                         // Prints conclusion
                         log(green(`[+] Target ${blue($TARGET)} packed, file size ${blue(size)} MiB, filename ${blue(file.name ?? "file")}.`));
-                        filenames.add(file.name ?? "file");
-                        targets.add($TARGET);
+                        finals.set($TARGET, file.name ?? "file");
                         continue;
                     }
                 }
@@ -381,7 +397,7 @@ for(const origin of origins) {
                     }
                     for(const peer of peers.requires) {
                         log(dim(`[#] Target ${blue($TARGET)} requires peer ${blue(peer)}, added to origins.`));
-                        if(!targets.has(peer)) origins.push(`${peer};modrinth;${$PLATFORM};${$VERSION}`);
+                        if(!origins.has(peer)) origins.set(peer, `${peer};modrinth;${$PLATFORM};${$VERSION}`);
                     }
                 }
                 
@@ -397,15 +413,13 @@ for(const origin of origins) {
 
                         // Prints conclusion
                         log(green(`[+] Target ${blue($TARGET)} is okay.`));
-                        filenames.add(file.name ?? "file");
-                        targets.add($TARGET);
+                        finals.set($TARGET, file.name ?? "file");
                         continue;
                     }
                     case await file.exists() && !flags["force"]: {
                         // Prints conclusion
                         log(dim(`[#] Target ${blue($TARGET)} already exists, filename ${blue(file.name ?? "file")}.`));
-                        filenames.add(file.name ?? "file");
-                        targets.add($TARGET);
+                        finals.set($TARGET, file.name ?? "file");
                         continue;
                     }
                     default: {
@@ -423,8 +437,7 @@ for(const origin of origins) {
 
                         // Prints conclusion
                         log(green(`[+] Target ${blue($TARGET)} packed, file size ${blue(size)} MiB, filename ${blue(file.name ?? "file")}.`));
-                        filenames.add(file.name ?? "file");
-                        targets.add($TARGET);
+                        finals.set($TARGET, file.name ?? "file");
                         continue;
                     }
                 }
@@ -445,11 +458,11 @@ for(const origin of origins) {
 // Prints rejects
 if(flags["check-peers"]) {
     for(const peer of rejects) {
-        if(targets.has(peer)) {
+        if(finals.has(peer)) {
             err(red(`[!] Peer ${blue(peer)} conflicts with one or more targets.`));
         }
     }
 }
 
 // Prints final
-log(cyan(`[@] Total ${pink(origins.length)} origin(s), final ${pink(targets.size)} okay.`));
+log(cyan(`[@] Total ${pink(origins.size)} origin(s), final ${pink(finals.size)} okay.`));
