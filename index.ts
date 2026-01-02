@@ -110,7 +110,7 @@ function verifyHash(algorithm: Bun.SupportedCryptoAlgorithms, bytes: Uint8Array<
 async function modrinthFetch(request: Request): Promise<Response> {
     // Configures request
     if(!request.url.startsWith("https://api.modrinth.com/v2/")) throw new Error("Request does not interact with the modrinth API.");
-    request.headers.append("user-agent", "DmmDGM/gsmc-pack/1.5.0");
+    request.headers.append("user-agent", `DmmDGM/gsmc-pack/${nodePackage.version}`);
     
     // Attempts fetch
     for(let attempts = 0; attempts < 3; attempts++) {
