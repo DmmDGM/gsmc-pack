@@ -1,6 +1,8 @@
 {
+    "bin": "./index.ts",
     "dependencies": {
-        "chalk": "^5.6.2"
+        "chalk": "^5.6.2",
+        "gsmc-pack": "."
     },
     "devDependencies": {
         "@types/bun": "latest"
@@ -12,5 +14,6 @@
     },
     "private": true,
     "scripts": {},
-    "type": "module"
+    "type": "module",
+    "version": "1.4.0"
 }

@@ -1,7 +1,11 @@
+#!/usr/bin/env bun
+
 // Imports
+import nodeFS from "node:fs/promises";
 import nodePath from "node:path";
 import nodeUtil from "node:util";
 import chalk from "chalk";
+import nodePackage from "./package.json";
 
 // Defines types
 interface ModrinthMatch {
@@ -16,31 +20,38 @@ interface ModrinthMatch {
     versions:  string[];
 }
 
-// Defines shortcuts
-const { blue, cyan, dim, green, magenta: pink, red } = chalk;
-const { error: err, log } = console;
-
 // Defines flags
 const { values: flags } = nodeUtil.parseArgs({
     allowNegative: false,
     allowPositionals: true,
     args: Bun.argv,
     options: {
-        "directory":     { default: "./pack/",      multiple: false, short: "d", type: "string" },
-        "file":          { default: "./pack.jsonc", multiple: false, short: "f", type: "string" },
-        "auto":          { default: false, multiple: false, short: "A", type: "boolean" },
-        "dot-minecraft": { default: false, multiple: false, short: "M", type: "boolean" },
-        "elaborate":     { default: false, multiple: false, short: "E", type: "boolean" },
-        "force":         { default: false, multiple: false, short: "F", type: "boolean" },
-        "nyaa":          { default: false, multiple: false, short: "N", type: "boolean" },
-        "test":          { default: false, multiple: false, short: "T", type: "boolean" },
-        "verbose":       { default: false, multiple: false, short: "V", type: "boolean" },
+        "directory":       { default: "./pack/",      multiple: false, short: "d", type: "string" },
+        "file":            { default: "./pack.jsonc", multiple: false, short: "f", type: "string" },
+        "check-peers":     { default: false, multiple: false, short: "P", type: "boolean" },
+        "clean":           { default: false, multiple: false, short: "C", type: "boolean" },
+        "dot-minecraft":   { default: false, multiple: false, short: "M", type: "boolean" },
+        "elaborate":       { default: false, multiple: false, short: "E", type: "boolean" },
+        "force":           { default: false, multiple: false, short: "F", type: "boolean" },
+        "help":            { default: false, multiple: false, short: "h", type: "boolean" },
+        "ignore-warnings": { default: false, multiple: false, short: "i", type: "boolean" },
+        "nyaa":            { default: false, multiple: false, short: "N", type: "boolean" },
+        "test":            { default: false, multiple: false, short: "T", type: "boolean" },
+        "verbose":         { default: false, multiple: false, short: "V", type: "boolean" },
+        "version":         { default: false, multiple: false, short: "v", type: "boolean" },
     },
     strict: true,
     tokens: false
 });
 
+// Defines shortcuts
+const { blue, bold, cyan, dim, gray, green, magenta: pink, red, yellow } = chalk;
+const err = (message: unknown) => console.error(flags["nyaa"] ? `${message} ${red("Nyuh!")}` : message);
+const log = (message: unknown) => console.log(flags["nyaa"] ? `${message} ${pink("Nyaa~! :3")}` : message);
+const warn = (message: unknown) => alert(flags["nyaa"] ? `${message} ${pink("Nywa!!!")}` : message);
+
 // Defines cache
+const filenames: Set<string> = new Set();
 const rejects: Set<string> = new Set();
 const targets: Set<string> = new Set();
 
@@ -229,10 +240,61 @@ process.on("unhandledRejection", (reason) => {
     process.exit(1);
 });
 
+// Prints help menu
+if(flags["help"]) {
+    flags
+    console.log(cyan(bold("<<========== Geesecraft Minecraft Autopacker ==========>>")));
+    console.log(gray("A tool to downloads mods, shaders, resourcepacks, and more automatically, so you don't have to do it manually!"));
+    console.log("");
+    console.log(`${bold("Usage:")} ${blue("bunx gsmc-pack [--flags...]")}`);
+    console.log(`${bold("Flags:")}`);
+    console.log(`    ${blue("-d --directory {path-to-dir}     ")} Specifies a directory as the output directory.`);
+    console.log(`    ${blue("-f --file {path-to-file}         ")} Specifies a .jsonc file as the input file.`);
+    console.log(`    ${blue("-P --check-peers                 ")} Checks for peers in addition to the origin list.`);
+    console.log(`    ${blue("-C --clean                       ")} Deletes the output direct to simulate a fresh start.`);
+    console.log(`                                      (Takes effect only if ${blue("--test")} flag is disabled.)`);
+    console.log(`                                      (Effectively enables ${blue("--force")} flag.)`);
+    console.log(`    ${blue("-M --dot-minecraft               ")} Places files in a .minecraft-like structure.`);
+    console.log(`    ${blue("-E --elaborate                   ")} Makes extra requests to give more details about an error.`);
+    console.log(`                                      (Takes effect only if ${blue("--verbose")} flag is enabled.)`);
+    console.log(`    ${blue("-F --force                       ")} Packs files even if they already exist.`);
+    console.log(`    ${blue("-h --help                        ")} Prints this help menu.`);
+    console.log(`    ${blue("-i --ignore-warnings             ")} Ignores all warnings.`);
+    console.log(`    ${blue("-N --nyaa                        ")} ${pink("Nyaa~! :3")}`);
+    console.log(`    ${blue("-T --test                        ")} Performs a dummy run but does not download the actual files.`);
+    console.log(`                                      (Effectively enables ${blue("--force")} flag.)`);
+    console.log(`    ${blue("-V --verbose                     ")} Prints more information about an error.`);
+    console.log(`    ${blue("-v --version                     ")} Prints the current version of gsmc-pack.`);
+    console.log("");
+    console.log(`${bold("Tutorial:")}`);
+    console.log(`    1. Create a ${blue("pack.jsonc")} in your local directory.`);
+    console.log(`    2. Insert an array of ${blue("origins")} inside the file, each line in the following format:`);
+    console.log(`        - "${gray("$TARGET;download;$TYPE;$URL")}"`);
+    console.log(`        - "${gray("$TARGET;modrinth;$PLATFORM;$VERSION")}"`);
+    console.log(`    3. Run ${blue("bunx gsmc-pack")}.`);
+    console.log("");
+    console.log(`    You can read more about it at ${blue("https://github.com/DmmDGM/gsmc-pack")}.`);
+    process.exit(0);
+}
+
+// Prints version
+if(flags["version"]) {
+    console.log(nodePackage.version);
+    process.exit(0);
+}
+
 // Fetches origins
 const origins: string[] = [];
 try { const result = await import(packf) as { default: string[]; }; Object.assign(origins, result.default); }
 catch { throw new Error(`File ${blue(packf)} is not found.`); }
+
+// Cleans directory
+if(flags["clean"] && !flags["test"]) {
+    if(!flags["ignore-warnings"]) warn(yellow(`[$] You are about to clean the directory ${blue(packd)}, continue?`));
+    try { await nodeFS.rm(packd, { force: true, recursive: true }) }
+    catch {}
+    log(red(`[!] Cleared directory ${blue(packd)}.`));
+}
 
 // Evaluates origins
 for(const origin of origins) {
@@ -263,12 +325,14 @@ for(const origin of origins) {
                     case flags["test"]: {
                         // Prints conclusion
                         log(green(`[+] Target ${blue($TARGET)} is okay.`));
+                        filenames.add(file.name ?? "file");
                         targets.add($TARGET);
                         continue;
                     }
                     case await file.exists() && !flags["force"]: {
                         // Prints conclusion
-                        log(dim(`[#] Target ${blue($TARGET)} already exists, filename ${blue(file.name)}.`));
+                        log(dim(`[#] Target ${blue($TARGET)} already exists, filename ${blue(file.name ?? "file")}.`));
+                        filenames.add(file.name ?? "file");
                         targets.add($TARGET);
                         continue;
                     }
@@ -283,7 +347,8 @@ for(const origin of origins) {
                         await writeBytes(file, bytes);
 
                         // Prints conclusion
-                        log(green(`[+] Target ${blue($TARGET)} packed, file size ${blue(size)} MiB, filename ${blue(file.name)}.`));
+                        log(green(`[+] Target ${blue($TARGET)} packed, file size ${blue(size)} MiB, filename ${blue(file.name ?? "file")}.`));
+                        filenames.add(file.name ?? "file");
                         targets.add($TARGET);
                         continue;
                     }
@@ -297,7 +362,7 @@ for(const origin of origins) {
                 const match = await modrinthMatch($TARGET, [ $PLATFORM ], [ $VERSION ]);
                 if(!match) {
                     // Checks nearest
-                    if(flags["elaborate"]) {
+                    if(flags["verbose"] && flags["elaborate"]) {
                         const nearest = await modrinthMatch($TARGET, [ $PLATFORM ], null);
                         if(nearest === null) throw new Error(`Target ${blue($TARGET)} does not supported platform ${blue($PLATFORM)} on Modrinth.`);
                         throw new Error(`Target ${blue($TARGET)} only supports platform ${blue($PLATFORM)}, version(s) ${blue(nearest.versions.join(", "))} on Modrinth.`);
@@ -307,8 +372,8 @@ for(const origin of origins) {
                     throw new Error(`Cannot find target ${blue($TARGET)} on Modrinth.`);
                 }
 
-                // Checks dependencies
-                if(flags["auto"]) {
+                // Checks peers
+                if(flags["check-peers"]) {
                     const peers = await modrinthPeers(match);
                     for(const peer of peers.rejects) {
                         log(dim(`[#] Target ${blue($TARGET)} is incompatible with peer ${blue(peer)}, flagged in origins.`));
@@ -332,12 +397,14 @@ for(const origin of origins) {
 
                         // Prints conclusion
                         log(green(`[+] Target ${blue($TARGET)} is okay.`));
+                        filenames.add(file.name ?? "file");
                         targets.add($TARGET);
                         continue;
                     }
                     case await file.exists() && !flags["force"]: {
                         // Prints conclusion
-                        log(dim(`[#] Target ${blue($TARGET)} already exists, filename ${blue(file.name)}.`));
+                        log(dim(`[#] Target ${blue($TARGET)} already exists, filename ${blue(file.name ?? "file")}.`));
+                        filenames.add(file.name ?? "file");
                         targets.add($TARGET);
                         continue;
                     }
@@ -355,7 +422,8 @@ for(const origin of origins) {
                         await writeBytes(file, bytes);
 
                         // Prints conclusion
-                        log(green(`[+] Target ${blue($TARGET)} packed, file size ${blue(size)} MiB, filename ${blue(file.name)}.`));
+                        log(green(`[+] Target ${blue($TARGET)} packed, file size ${blue(size)} MiB, filename ${blue(file.name ?? "file")}.`));
+                        filenames.add(file.name ?? "file");
                         targets.add($TARGET);
                         continue;
                     }
@@ -374,10 +442,14 @@ for(const origin of origins) {
     }
 }
 
-// Prints message
-log(cyan(`[@] Total ${pink(origins.length)} origin(s), final ${pink(targets.size)} okay.`));
+// Prints rejects
+if(flags["check-peers"]) {
+    for(const peer of rejects) {
+        if(targets.has(peer)) {
+            err(red(`[!] Peer ${blue(peer)} conflicts with one or more targets.`));
+        }
+    }
+}
 
-// Prints followups
-rejects.forEach((peer) => {
-    if(targets.has(peer)) err(red(`[!] Peer ${blue(peer)} conflicts with one or more targets.`));
-});
+// Prints final
+log(cyan(`[@] Total ${pink(origins.length)} origin(s), final ${pink(targets.size)} okay.`));

@@ -1,0 +1,7 @@
+[
+    // Examples
+    "fabric-api;modrinth;fabric;1.21.5",
+    "complementary-reimagined;modrinth;iris;1.21.5",
+    "default-dark-mode;modrinth;minecraft;1.21.5",
+    "tech-reborn;download;mod;https://github.com/TechReborn/TechReborn/releases/download/5.13.4/TechReborn-5.13.4.jar"
+]
