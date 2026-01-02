@@ -31,17 +31,17 @@ bunx gsmc-pack [--flags...]
 | `-f` | `--file {path-to-file}`     | Specifies a .jsonc file as the input file.                   |
 | `-P` | `--check-peers`             | Checks for peers in addition to the origin list.             |
 | `-C` | `--clean`                   | Deletes the output direct to simulate a fresh start.         |
-|      |                             | (Takes effect only if --test flag is disabled.)              |
-|      |                             | (Effectively enables --force flag.)                          |
+|      |                             | (Takes effect only if `--test` flag is disabled.)            |
+|      |                             | (Effectively enables `--force` flag.)                        |
 | `-M` | `--dot-minecraft`           | Places files in a .minecraft-like structure.                 |
 | `-E` | `--elaborate`               | Makes extra requests to give more details about an error.    |
-|      |                             | (Takes effect only if --verbose flag is enabled.)            |
+|      |                             | (Takes effect only if `--verbose` flag is enabled.)          |
 | `-F` | `--force`                   | Packs files even if they already exist.                      |
 | `-h` | `--help`                    | Prints this help menu.                                       |
 | `-i` | `--ignore-warnings`         | Ignores all warnings.                                        |
 | `-N` | `--nyaa`                    | Nyaa~! :3                                                    |
 | `-T` | `--test`                    | Performs a dummy run but does not download the actual files. |
-|      |                             | (Effectively enables --force flag.)                          |
+|      |                             | (Effectively enables `--force` flag.)                        |
 | `-V` | `--verbose`                 | Prints more information about an error.                      |
 | `-v` | `--version`                 | Prints the current version of gsmc-pack.                     |
 
@@ -61,7 +61,7 @@ bunx gsmc-pack [--flags...]
         "default-dark-mode;modrinth;minecraft;1.21.5",
         "tech-reborn;download;mod;https://github.com/TechReborn/TechReborn/releases/download/5.13.4/TechReborn-5.13.4.jar"
 
-        // Note: You can also find in the example.jsonc file.
+        // Note: You can also find this in the example.jsonc file.
     ]
     ```
 
@@ -69,4 +69,4 @@ bunx gsmc-pack [--flags...]
 
 ---
 
-###### Last Updated: 2026-01-02 03:10 (EST).
+###### Last Updated: 2026-01-02 16:18 (EST).
