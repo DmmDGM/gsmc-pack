@@ -4,7 +4,7 @@
 
 A tool to downloads mods, shaders, resourcepacks, and more automatically, so you don't have to do it manually!
 
-## Setup & Usage
+## Setup
 
 > [!NOTE]
 > Requires [Bun](https://bun.com) as runtime.
@@ -25,7 +25,13 @@ gsmc-pack --help
 
 ```sh
 # Option #3: Execute from NPM
-bunx gsmc-pack
+bunx gsmc-pack --help
+```
+
+## Usage
+
+```sh
+bunx gsmc-pack [path-to-file] [--flags...]
 ```
 
 ## Flags
@@ -43,7 +49,7 @@ bunx gsmc-pack
 |      |                             | (Takes effect only if `--verbose` flag is enabled.)          |
 | `-F` | `--force`                   | Packs files even if they already exist.                      |
 | `-h` | `--help`                    | Prints this help menu.                                       |
-| `-i` | `--ignore-warnings`         | Ignores all warnings.                                        |
+| `-I` | `--ignore-warnings`         | Ignores all warnings.                                        |
 | `-N` | `--nyaa`                    | Nyaa~! :3                                                    |
 | `-T` | `--test`                    | Performs a dummy run but does not download the actual files. |
 |      |                             | (Effectively enables `--force` flag.)                        |
@@ -74,4 +80,4 @@ bunx gsmc-pack
 
 ---
 
-###### Last Updated: 2026-01-02 16:18 (EST).
+###### Last Updated: 2026-01-10 23:25 (EST).

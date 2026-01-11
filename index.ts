@@ -21,7 +21,7 @@ interface ModrinthMatch {
 }
 
 // Defines flags
-const { values: flags } = nodeUtil.parseArgs({
+const { values: flags, positionals: args } = nodeUtil.parseArgs({
     allowNegative: false,
     allowPositionals: true,
     args: Bun.argv,
@@ -34,7 +34,7 @@ const { values: flags } = nodeUtil.parseArgs({
         "elaborate":       { default: false, multiple: false, short: "E", type: "boolean" },
         "force":           { default: false, multiple: false, short: "F", type: "boolean" },
         "help":            { default: false, multiple: false, short: "h", type: "boolean" },
-        "ignore-warnings": { default: false, multiple: false, short: "i", type: "boolean" },
+        "ignore-warnings": { default: false, multiple: false, short: "I", type: "boolean" },
         "nyaa":            { default: false, multiple: false, short: "N", type: "boolean" },
         "test":            { default: false, multiple: false, short: "T", type: "boolean" },
         "verbose":         { default: false, multiple: false, short: "V", type: "boolean" },
@@ -52,7 +52,7 @@ const warn = (message: unknown) => alert(flags["nyaa"] ? `${message} ${pink("Nyw
 
 // Defines paths
 const packd = nodePath.resolve(flags["directory"]);
-const packf = nodePath.resolve(flags["file"]);
+const packf = nodePath.resolve(args[2] ?? flags["file"]);
 
 // Defines functions
 function fetchFile(filename: string, type: string): Bun.BunFile {
@@ -241,7 +241,7 @@ if(flags["help"]) {
     console.log(cyan(bold("<<========== Geesecraft Minecraft Autopacker ==========>>")));
     console.log(gray("A tool to downloads mods, shaders, resourcepacks, and more automatically, so you don't have to do it manually!"));
     console.log("");
-    console.log(`${bold("Usage:")} ${blue("bunx gsmc-pack [--flags...]")}`);
+    console.log(`${bold("Usage:")} ${blue("bunx gsmc-pack [path-to-file] [--flags...]")}`);
     console.log(`${bold("Flags:")}`);
     console.log(`    ${blue("-d --directory {path-to-dir}     ")} Specifies a directory as the output directory.`);
     console.log(`    ${blue("-f --file {path-to-file}         ")} Specifies a .jsonc file as the input file.`);
@@ -254,7 +254,7 @@ if(flags["help"]) {
     console.log(`                                      (Takes effect only if ${blue("--verbose")} flag is enabled.)`);
     console.log(`    ${blue("-F --force                       ")} Packs files even if they already exist.`);
     console.log(`    ${blue("-h --help                        ")} Prints this help menu.`);
-    console.log(`    ${blue("-i --ignore-warnings             ")} Ignores all warnings.`);
+    console.log(`    ${blue("-I --ignore-warnings             ")} Ignores all warnings.`);
     console.log(`    ${blue("-N --nyaa                        ")} ${pink("Nyaa~! :3")}`);
     console.log(`    ${blue("-T --test                        ")} Performs a dummy run but does not download the actual files.`);
     console.log(`                                      (Effectively enables ${blue("--force")} flag.)`);
