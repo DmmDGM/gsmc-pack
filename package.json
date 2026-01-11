@@ -11,7 +11,7 @@
     "peerDependencies": {
         "typescript": "^5.9.3"
     },
-    "private": true,
+    "private": false,
     "scripts": {},
     "type": "module",
     "version": "2.0.1"

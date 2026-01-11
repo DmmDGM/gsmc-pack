@@ -13,8 +13,12 @@ A tool to downloads mods, shaders, resourcepacks, and more automatically, so you
 git clone https://github.com/DmmDGM/gsmc-pack
 cd gsmc-pack
 bun i
-bun link
-bunx gsmc-pack --help
+bun . --help
+```
+
+```sh
+bun add -g gsmc-pack
+gsmc-pack --help
 ```
 
 ## Usage
