@@ -336,7 +336,7 @@ for(const origin of origins.values()) {
                 if(!lookup.ok) throw new Error(`Failed to fetch URL ${blue($URL)}.`);
 
                 // Fetches file
-                const filename = parseDisposition(lookup) ?? $URL.split("/").at(-1) ?? $TARGET;
+                const filename = parseDisposition(lookup) ?? new URL($URL).pathname.split("/").at(-1) ?? $TARGET;
                 const file = fetchFile(filename, $TYPE);
 
                 // Packs origin

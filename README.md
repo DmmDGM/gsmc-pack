@@ -4,12 +4,13 @@
 
 A tool to downloads mods, shaders, resourcepacks, and more automatically, so you don't have to do it manually!
 
-## Setup
+## Setup & Usage
 
 > [!NOTE]
 > Requires [Bun](https://bun.com) as runtime.
 
 ```sh
+# Option #1: Clone From GitHub
 git clone https://github.com/DmmDGM/gsmc-pack
 cd gsmc-pack
 bun i
@@ -17,14 +18,14 @@ bun . --help
 ```
 
 ```sh
+# Option #2: Download From NPM
 bun add -g gsmc-pack
 gsmc-pack --help
 ```
 
-## Usage
-
 ```sh
-bunx gsmc-pack [--flags...]
+# Option #3: Execute from NPM
+bunx gsmc-pack
 ```
 
 ## Flags
