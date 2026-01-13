@@ -1,5 +1,5 @@
 {
-    "bin": "./index.ts",
+    "bin": "index.ts",
     "dependencies": {
         "chalk": "^5.6.2"
     },
@@ -12,7 +12,9 @@
         "typescript": "^5.9.3"
     },
     "private": false,
-    "scripts": {},
+    "scripts": {
+        "compile": "bun compile.ts"
+    },
     "type": "module",
     "version": "2.0.3"
 }
