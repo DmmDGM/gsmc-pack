@@ -15,11 +15,14 @@ interface FabricModJSON {
     version: string;
 }
 
-// Formats assertion error
-function _error(code: keyof typeof errors, tags: { [ tags in string ]: string } = {}): string {
-    // Replaces tags in error message
-    const message = errors[code] ?? `The error code provided does not exist, got '${code}'.`;
-    return message.replaceAll(/\$(\w+)/g, (match, tag) => tag in tags ? tags[tag] : match);
+// 
+class ModrinthRegistry {
+    static readonly API = "https://api.modrinth.com/v2/"
+    static readonly USER_AGENT = "DmmDGM/gsmc-pack/3.0.0 (dev) (dmmdgm@dmmdgm.dev)";
+
+    static async fetchProjectDetails(id: string) {
+        const response = await fetch(new URL(`/project/${id}`, ModrinthRegistry.API))
+    }
 }
 
 // Represents a '.minecraft' instance
@@ -73,7 +76,7 @@ class MinecraftMod {
     }
 
     // Parses 'fabric.mod.json' in mod file
-    parseAsFabricMod() {
+    parseAsFabricMod(): Promise<FabricModJSON> {
         // Checks existence of 'fabric.mod.json'
         const zip = new AdmZip(this.modFilePath);
         const metadataEntry = zip.getEntry("fabric.mod.json");
@@ -92,6 +95,13 @@ class MinecraftMod {
             })
         });
     }
+}
+
+// Formats assertion error
+function _error(code: keyof typeof errors, tags: { [ tags in string ]: string } = {}): string {
+    // Replaces tags in error message
+    const message = errors[code] ?? `The error code provided does not exist, got '${code}'.`;
+    return message.replaceAll(/\$(\w+)/g, (match, tag) => tag in tags ? tags[tag] : match);
 }
 
 // Temporary test code

@@ -6,7 +6,7 @@
     "devDependencies": {
         "@types/bun": "latest"
     },
-    "module": "index.ts",
+    "module": "src/index.ts",
     "name": "gsmc-pack",
     "peerDependencies": {
         "typescript": "^5.9.3"
