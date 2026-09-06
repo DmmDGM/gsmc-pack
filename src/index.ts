@@ -25,27 +25,23 @@ class ModrinthRegistry {
     }
 }
 
-// Represents a '.minecraft' instance
+// Represents a Minecraft instance
 class MinecraftInstance {
     // Defines fields
-    readonly dotMinecraftPath: string;
+    readonly instancePath: string;
 
     // Defines constructor
-    constructor(dotMinecraftPath: string) {
-        // Checks validity of '.minecraft'
-        const isInstanceDotMinecraft = dotMinecraftPath.endsWith(".minecraft");
-        nodeAssert(isInstanceDotMinecraft, _error("INVALID_DOT_MINECRAFT_PATH", { "path": dotMinecraftPath }));
-        
+    constructor(instancePath: string) {    
         // Initialize fields
-        this.dotMinecraftPath = dotMinecraftPath;
+        this.instancePath = instancePath;
     }
 
-    // Reads '.minecraft/mods' directory
+    // Reads 'mods' directory
     async readModsDirectory(): Promise<MinecraftMod[]> {
         try {
             // Gets list of mods in mod directory
-            const modFiles = await nodeFs.readdir(nodePath.join(this.dotMinecraftPath, "mods"));
-            return modFiles.map((modFile) => new MinecraftMod(nodePath.join(this.dotMinecraftPath, "mods", modFile)));
+            const modFiles = await nodeFs.readdir(nodePath.join(this.instancePath, "mods"));
+            return modFiles.map((modFile) => new MinecraftMod(nodePath.join(this.instancePath, "mods", modFile)));
         }
         catch {
             // Returns empty list if failed
