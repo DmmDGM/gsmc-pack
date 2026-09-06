@@ -1,6 +1,6 @@
 {
-    "INVALID_DOT_MINECRAFT_PATH": "Failed to parse Minecraft instance: '$path' is not a valid '.minecraft' directory.",
-    "INVALID_FABRIC_MOD_JSON": "Failed to parse Fabric mod: 'fabric.mod.json' in mod file '$path' contains broken data.",
-    "INVALID_MOD_FILE_PATH": "Failed to parse mod: '$path' is not a valid mod file path.",
-    "MISSING_FABRIC_MOD_JSON": "Failed to parse Fabric mod: Cannot find 'fabric.mod.json' in mod file '$path'."
+    "FABRIC_MOD_BROKEN_FABRIC_MOD_JSON": "Failed to parse Fabric Minecraft mod: File 'fabric.mod.json' from file '$path' does not contain valid JSON.",
+    "FABRIC_MOD_MISSING_FABRIC_MOD_JSON": "Failed to parse Fabric Minecraft mod: File 'fabric.mod.json' does not exist in file '$path'",
+    "MOD_EXPECTS_DOT_JAR": "Failed to parse Minecraft mod: File '$path' is not a '.jar' file.",
+    "MOD_INVALID_OR_UNSUPPORTED_MOD_FLAVOR": "Failed to guess Minecraft mod flavor: File '$path' is either invalid or uses an unsupported mod flavor."
 }
