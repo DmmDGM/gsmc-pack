@@ -1,4 +1,4 @@
-// Defines 'fabric.mod.json' interface
+/** A representation of the 'fabric.mod.json' interface. */
 interface FabricModJSON {
     authors: string[];
     depends: { [ depenency: string ]: string; }

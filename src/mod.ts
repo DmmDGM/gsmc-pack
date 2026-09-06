@@ -10,7 +10,7 @@ export enum MinecraftModFlavor {
     NEOFORGE
 }
 
-/** Represents a Minecraft mod. */
+/** A representation of a Minecraft mod. */
 export class MinecraftMod {
     /** The path to this Minecraft mod. */
     readonly modPath: string;

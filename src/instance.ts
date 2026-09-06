@@ -3,7 +3,7 @@ import nodeFs from "node:fs/promises";
 import nodePath from "node:path";
 import { MinecraftMod } from "./mod";
 
-/** Represents a Minecraft instance. */
+/** A representation of a Minecraft instance. */
 export class MinecraftInstance {
     /** The path to this Minecraft instance. */
     readonly instancePath: string;
