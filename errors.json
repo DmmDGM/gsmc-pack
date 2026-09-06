@@ -1,0 +1,6 @@
+{
+    "INVALID_DOT_MINECRAFT_PATH": "Failed to parse Minecraft instance: '$path' is not a valid '.minecraft' directory.",
+    "INVALID_FABRIC_MOD_JSON": "Failed to parse Fabric mod: 'fabric.mod.json' in mod file '$path' contains broken data.",
+    "INVALID_MOD_FILE_PATH": "Failed to parse mod: '$path' is not a valid mod file path.",
+    "MISSING_FABRIC_MOD_JSON": "Failed to parse Fabric mod: Cannot find 'fabric.mod.json' in mod file '$path'."
+}

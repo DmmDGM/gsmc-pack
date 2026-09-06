@@ -1,6 +1,6 @@
 {
-    "bin": "index.ts",
     "dependencies": {
+        "adm-zip": "^0.6.0",
         "chalk": "^5.6.2"
     },
     "devDependencies": {
@@ -12,9 +12,6 @@
         "typescript": "^5.9.3"
     },
     "private": false,
-    "scripts": {
-        "compile": "bun compile.ts"
-    },
     "type": "module",
-    "version": "2.0.3"
+    "version": "3.0.0"
 }
