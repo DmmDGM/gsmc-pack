@@ -1,6 +1,6 @@
 // Imports
 import nodeAssert from "node:assert";
-import { _error } from "./core";
+import { _error } from "./common";
 import { version } from "../package.json";
 
 /** The Modrinth registry. */

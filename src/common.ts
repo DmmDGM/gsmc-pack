@@ -1,6 +1,22 @@
 // Imports
 import errors from "./errors.json";
 
+/** A list of supported Minecraft addon types in gsmc-pack. */
+export enum MinecraftAddonType {
+    DATA = "DATA",
+    MOD = "MOD",
+    PLUGIN = "PLUGIN",
+    RESOURCE = "RESOURCE",
+    SHADER = "SHADER"
+}
+
+/** A list of supported Minecraft mod flavors in gsmc-pack. */
+export enum MinecraftModFlavor {
+    FABRIC = "FABRIC",
+    FORGE = "FORGE",
+    NEO_FORGE = "NEO_FORGE"
+}
+
 /**
  * Formats a template error message with dynamic values.
  * @param code The error code. See `errors.json` for a list of available error codes.
