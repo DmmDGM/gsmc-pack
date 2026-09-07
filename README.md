@@ -15,8 +15,6 @@ cmdline
 - [ ] `gsmc-pack init` # reads current .minecraft directory and generates / refreshes gsmc-pack.json
 - [ ] `gsmc-pack add <...id[@version]>` # installs mod / resource pack / shader pack
 - [ ] `gsmc-pack remove <...id>` # uninstalls mod / resource pack / shader pack
-- [ ] `gsmc-pack enable <...id>` # enables mod / resource pack / shader pack by removing the .disabled extension (multimc style)
-- [ ] `gsmc-pack disable <...id>` # disables mod / resource pack / shader pack by adding the .disabled extension (multimc style)
 - [ ] `gsmc-pack install` # reads gsmc-pack.json and install everything as specified, good for sharing modpacks via gsmc-pack.json
 - [ ] `gsmc-pack update [...id[@version]]` # updates mod / resource pack / shader pack without changing minecraft version
 - [ ] `gsmc-pack migrate <minecraft-version> [...id[@version]]` # updates mod / resource pack / shader pack to the corresponding minecraft version
