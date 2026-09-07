@@ -1,6 +1,5 @@
 // Imports
 import nodeAssert from "node:assert";
-import nodeTimers from "node:timers/promises";
 import { _error } from "./core";
 import { version } from "../package.json";
 
@@ -34,7 +33,7 @@ export class ModrinthRegistry {
      */
     static async createGetRequest(url: URL, retry: number = ModrinthRegistry.DEFAULT_RETRIES, timeout: number = ModrinthRegistry.DEFAULT_TIMEOUT): Promise<Response> {
         // Ensures Modrinth API origin
-        nodeAssert(url.href.startsWith(ModrinthRegistry.API), _error("MODRINTH_REQUEST_EXTERNAL_URL", { url: url.toString() }));
+        nodeAssert(url.href.startsWith(ModrinthRegistry.API), _error("MODRINTH:REQUEST_EXTERNAL_URL", { url: url.toString() }));
         
         // Creates fetch headers
         const headers = new Headers();
@@ -47,7 +46,7 @@ export class ModrinthRegistry {
             
             // Resolves rate limit if necessary
             if(response.status === 429) {
-                await nodeTimers.setTimeout(timeout);
+                await Bun.sleep(timeout);
                 continue;
             }
 
@@ -56,7 +55,7 @@ export class ModrinthRegistry {
         }
 
         // Throws error
-        nodeAssert(false, _error("MODRINTH_RESPONSE_RATE_LIMIT_TIMEOUT", { url: url.toString() }));
+        nodeAssert(false, _error("MODRINTH:RESPONSE_RATE_LIMIT_TIMEOUT", { url: url.toString() }));
     }
 
     /**
@@ -71,7 +70,7 @@ export class ModrinthRegistry {
         
         // Parses 'project_id' field from data
         const data = await response.json();
-        nodeAssert("project_id" in data, _error("MODRINTH_FILE_HASH_DOES_NOT_EXIST", { hash }));
+        nodeAssert("project_id" in data, _error("MODRINTH:MISSING_FILE_HASH", { hash }));
         return data["project_id"];
     }
 }

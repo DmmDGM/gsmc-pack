@@ -12,7 +12,7 @@ basics
 - [ ] ability to detect mods and install stuff online
 
 cmdline
-- [ ] `gsmc-pack init` # reads current .minecraft directory and generates gsmc-pack.json
+- [ ] `gsmc-pack init` # reads current .minecraft directory and generates / refreshes gsmc-pack.json
 - [ ] `gsmc-pack add <...id[@version]>` # installs mod / resource pack / shader pack
 - [ ] `gsmc-pack remove <...id>` # uninstalls mod / resource pack / shader pack
 - [ ] `gsmc-pack enable <...id>` # enables mod / resource pack / shader pack by removing the .disabled extension (multimc style)
@@ -21,7 +21,7 @@ cmdline
 - [ ] `gsmc-pack update [...id[@version]]` # updates mod / resource pack / shader pack without changing minecraft version
 - [ ] `gsmc-pack migrate <minecraft-version> [...id[@version]]` # updates mod / resource pack / shader pack to the corresponding minecraft version
 - [ ] `gsmc-pack upgrade` # upgrades gsmc-pack from github ig? prob just gonna be a `git pull` if im too lazy to make an installer for it
-- [ ] `gsmc-pack scan` # check for updatable packages and refreshes gsmc-pack.json
+- [ ] `gsmc-pack scan` # check for updatable packages
 - [ ] `gsmc-pack list` # list all mod / resource pack / shader packs installed - this only checks gsmc-pack.json, will need `gsmc-pack scan` to update
 - [ ] if time allows, maybe i will do a direct url install, probably `gsmc-pack link <url>`, which means its not updatable or migratable, but at least it will appear on `gsmc-pack.json` and stuff idk
 

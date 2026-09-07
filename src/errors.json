@@ -1,9 +1,9 @@
 {
-    "FABRIC_MOD_BROKEN_FABRIC_MOD_JSON": "Failed to parse Fabric Minecraft mod: File 'fabric.mod.json' from file '$path' does not contain valid JSON.",
-    "FABRIC_MOD_MISSING_FABRIC_MOD_JSON": "Failed to parse Fabric Minecraft mod: File 'fabric.mod.json' does not exist in file '$path'",
-    "MOD_EXPECTS_DOT_JAR": "Failed to parse Minecraft mod: File '$path' is not a '.jar' file.",
-    "MOD_INVALID_OR_UNSUPPORTED_MOD_FLAVOR": "Failed to sniff Minecraft mod flavor: File '$path' is either invalid or uses an unsupported mod flavor.",
-    "MODRINTH_FILE_HASH_DOES_NOT_EXIST": "Failed to get projectID from Modrinth: The file hash '$hash' does not exist on Modrinth.",
-    "MODRINTH_REQUEST_EXTERNAL_URL": "Failed to get response from Modrinth: Hey, wait a minute. That's not Modrinth! Due to safety reasons, we cannot access resource from URL '$url'. Sorry.",
-    "MODRINTH_RESPONSE_RATE_LIMIT_TIMEOUT": "Failed to get response from Modrinth: Apparently we've hit the rate limit while trying to access resource from URL '$url'. Please try again after a minute."
+    "FABRIC_MOD:BROKEN_FABRIC_MOD_JSON": "Failed to parse Fabric Minecraft mod: File 'fabric.mod.json' from file '$path' does not contain valid JSON.",
+    "FABRIC_MOD:MISSING_FABRIC_MOD_JSON": "Failed to parse Fabric Minecraft mod: File 'fabric.mod.json' does not exist in file '$path'",
+    "MOD:INVALID_OR_UNSUPPORTED_FLAVOR": "Failed to sniff Minecraft mod flavor: File '$path' is either invalid or uses an unsupported mod flavor.",
+    "MOD:NOT_A_DOT_JAR": "Failed to parse Minecraft mod: File '$path' is not a '.jar' file.",
+    "MODRINTH:MISSING_FILE_HASH": "Failed to get projectID from Modrinth: The file hash '$hash' does not exist on Modrinth.",
+    "MODRINTH:REQUEST_EXTERNAL_URL": "Failed to get response from Modrinth: Hey, wait a minute. That's not Modrinth! Due to safety reasons, we cannot access resource from URL '$url'. Sorry.",
+    "MODRINTH:RESPONSE_RATE_LIMIT_TIMEOUT": "Failed to get response from Modrinth: Apparently we've hit the rate limit while trying to access resource from URL '$url'. Please try again after a minute."
 }
