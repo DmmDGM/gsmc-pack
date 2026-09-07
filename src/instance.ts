@@ -106,7 +106,7 @@ export class MinecraftInstance {
                 pack.addons[flavored.hash] = flavored.metadata;
                 successes.push(flavored);
             }
-            catch {
+            catch(error) {
                 failures.push(mod);
                 continue;
             }

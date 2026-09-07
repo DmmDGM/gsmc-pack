@@ -1,8 +1,10 @@
 // Imports
-import nodeAssert from "node:assert";
-import AdmZip from "adm-zip";
-import { _error, MinecraftAddonType, MinecraftModFlavor } from "./common";
 import type { GSMCPackJSON } from "./instance";
+import nodeAssert from "node:assert";
+import curseforge from "@meza/curseforge-fingerprint";
+import AdmZip from "adm-zip";
+import { _error, MinecraftAddonType, MinecraftModFlavor, MinecraftRegistryType } from "./common";
+import { CurseForgeRegistry } from "./curseforge";
 import { ModrinthRegistry } from "./modrinth";
 
 /** A representation of a Minecraft mod. */
@@ -27,29 +29,21 @@ export abstract class MinecraftMod {
 /** A representation of an abstract Minecraft mod. */
 export class AbstractMinecraftMod extends MinecraftMod {
     /**
+     * Compiles the CurseForge file fingerprint of this mod.
+     * @returns This mod's CurseForge file fingerprint.
+     */
+    compileFileFingerprint(): number {
+        // Fingerprints file content
+        return curseforge.fingerprint(this.path);
+    }
+
+    /**
      * Compiles the sha1 file hash of this mod.
      * @returns This mod's sha1 file hash.
      */
     async compileFileHash(): Promise<string> {
         // Hashes file content
         return Bun.CryptoHasher.hash("sha1", await Bun.file(this.path).bytes()).toHex();
-    }
-
-    /**
-     * Finds the upstream of this mod.
-     * @returns This mod's upstream.
-     */
-    async findModUpstream(): Promise<string> {
-        // Checks if Modrinth has this mod
-        try {
-            const hash = await this.compileFileHash();
-            const projectID = await ModrinthRegistry.fetchProjectIDFromFileHash(hash);
-            return `MODRINTH:${projectID}`;
-        }
-        catch {};
-
-        // Throws error
-        nodeAssert(false, _error("MOD:INVALID_OR_UNSUPPORTED_FLAVOR", { path: this.path }));
     }
 
     /**
@@ -68,7 +62,7 @@ export class AbstractMinecraftMod extends MinecraftMod {
                 // Checks zip error
                 if(typeof error !== "undefined") reject(error);
 
-                // Parses json
+                // Parses metadata json
                 try {
                     const json = JSON.parse(data.toString());
                     nodeAssert("id" in json && "name" in json && "version" in json, _error("FABRIC_MOD:BROKEN_FABRIC_MOD_JSON", { path: this.path }));
@@ -77,7 +71,7 @@ export class AbstractMinecraftMod extends MinecraftMod {
                         id: json["id"],
                         name: json["name"],
                         type: MinecraftAddonType.MOD,
-                        upstream: await this.findModUpstream(),
+                        upstream: await this.resolveModUpstream(),
                         version: json["version"],
                     });
                 }
@@ -92,6 +86,9 @@ export class AbstractMinecraftMod extends MinecraftMod {
         return new FlavoredMinecraftMod(this.path, hash, metadata);
     }
 
+    async parseAsForgeMod() {}
+    async parseAsNeoForgeMod() {}
+
     /**
      * Parses this mod as a flavored mod.
      * @returns A flavored representation of this mod.
@@ -105,6 +102,31 @@ export class AbstractMinecraftMod extends MinecraftMod {
 
         // Throws error
         nodeAssert(false, _error("MOD:INVALID_OR_UNSUPPORTED_FLAVOR", { path: this.path }));
+    }
+
+    /**
+     * Resolves the upstream of this mod.
+     * @returns This mod's upstream.
+     */
+    async resolveModUpstream(): Promise<string> {
+        // Checks if Modrinth has this mod
+        try {
+            const hash = await this.compileFileHash();
+            const project = await ModrinthRegistry.fetchProjectFromFileHash(hash);
+            return `${MinecraftRegistryType.MODRINTH}::${project.id}+${project.version}::${project.url}`;
+        }
+        catch {}
+
+        // Checks if CurseForge has this mod
+        try {
+            const fingerprint = this.compileFileFingerprint();
+            const match = await CurseForgeRegistry.fetchMatchFromFileFingerprint(fingerprint);
+            return `${MinecraftRegistryType.CURSE_FORGE}::${match.id}+${match.version}::${match.url}`;
+        }
+        catch {}
+
+        // Throws error
+        nodeAssert(false, _error("MOD:INVALID_OR_UNSUPPORTED_REGISTRY", { path: this.path }));
     }
 }
 

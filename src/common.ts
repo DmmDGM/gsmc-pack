@@ -1,4 +1,6 @@
 // Imports
+import nodeOs from "node:os";
+import nodePath from "node:path";
 import errors from "./errors.json";
 
 /** A list of supported Minecraft addon types in gsmc-pack. */
@@ -17,6 +19,12 @@ export enum MinecraftModFlavor {
     NEO_FORGE = "NEO_FORGE"
 }
 
+/** A list of supported Minecraft registry types in gsmc-pack. */
+export enum MinecraftRegistryType {
+    CURSE_FORGE = "CURSE_FORGE",
+    MODRINTH = "MODRINTH"
+}
+
 /**
  * Formats a template error message with dynamic values.
  * @param code The error code. See `errors.json` for a list of available error codes.
@@ -27,4 +35,19 @@ export function _error(code: keyof typeof errors, values: { [ Value in string ]:
     // Generates error message
     const message = errors[code] ?? `This is a fallback error message. The error code '${code}' does not exist.`;
     return message.replaceAll(/\$(\w+)/g, (match, value) => value in values ? values[value] : match);
+}
+
+/**
+ * Reads the CurseForge API key from the '~/.gsmc-pack/curse-forge.key' file.
+ * @returns 
+ */
+export async function readCurseForgeAPIKey(): Promise<string> {
+    try {
+        // Reads '~/.gsmc-pack/curse-forge.key' if exists
+        return await Bun.file(nodePath.resolve(nodeOs.homedir(), "./.gsmc-pack/curse-forge.key")).text();
+    }
+    catch {
+        // Returns empty string as fallback
+        return "";
+    }
 }

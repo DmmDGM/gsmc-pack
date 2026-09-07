@@ -16,8 +16,8 @@ export class ModrinthRegistry {
 
     /**
      * Creates an URL to Modrinth API from a given endpoint.
-     * @param endpoint 
-     * @returns 
+     * @param endpoint The Modrinth API endpoint.
+     * @returns The built Modrinth API URL.
      */
     static createBaseURL(endpoint: string): URL {
         // Creates Modrinth API URL
@@ -25,7 +25,7 @@ export class ModrinthRegistry {
     }
 
     /**
-     * Creates a get request to Modrinth API from a given URL.
+     * Creates a GET request to Modrinth API from a given URL.
      * @param url The Modrinth API url.
      * @param retry The number of retries available in case of a rate limit violation.
      * @param timeout The time in milliseconds to wait in case of a rate limit violation.
@@ -59,21 +59,46 @@ export class ModrinthRegistry {
     }
 
     /**
-     * Fetches a mod's Modrinth project ID from its file hash.
+     * Fetches a mod's Modrinth project from its file hash.
      * @param hash The file hash of the mod.
-     * @returns The Modrinth project ID of this mod.
+     * @returns The Modrinth project of this mod.
      */
-    static async fetchProjectIDFromFileHash(hash: string): Promise<string> {
+    static async fetchProjectFromFileHash(hash: string): Promise<{
+        date: number;
+        hash: string;
+        id: string;
+        path: string;
+        url: string;
+        version: string;
+    }> {
         // Retrieves response from Modrinth
         const url = ModrinthRegistry.createBaseURL(`/version_file/${hash}`);
         const response = await ModrinthRegistry.createGetRequest(url);
         nodeAssert(response.ok, _error("MODRINTH:NO_SUCH_FILE_HASH", { hash }));
         
-        // Parses 'project_id' field from data
-        const data = await response.json() as {
+        // Parses relevant fields from response
+        const project = await response.json() as {
+            date_published: string;
+            files: {
+                filename: string;
+                hashes: {
+                    sha1: string;
+                };
+                primary: boolean;
+                url: string;
+            }[];
             project_id: string;
+            version_number: string;
         };
-        return data["project_id"];
+        const file = project.files.find((file) => file.primary) || project.files[0];
+        return {
+            date: +new Date(project.date_published),
+            hash: file.hashes.sha1,
+            id: project.project_id,
+            path: file.filename,
+            url: file.url,
+            version: project.version_number
+        };
     }
 
     /**
@@ -86,7 +111,7 @@ export class ModrinthRegistry {
     static async fetchVersionsFromProjectID(id: string, flavor: MinecraftModFlavor, version: string): Promise<{
         date: number;
         hash: string;
-        name: string;
+        id: string;
         path: string;
         url: string;
         version: string;   
@@ -106,8 +131,8 @@ export class ModrinthRegistry {
         const response = await ModrinthRegistry.createGetRequest(url);
         nodeAssert(response.ok, _error("MODRINTH:NO_SUCH_PROJECT_ID", { id }));
 
-        // Parses relevant fields from data
-        const data = await response.json() as {
+        // Parses relevant fields from response
+        const versions = await response.json() as {
             date_published: string;
             files: {
                 filename: string;
@@ -117,17 +142,16 @@ export class ModrinthRegistry {
                 primary: boolean;
                 url: string;
             }[];
-            name: string;
+            project_id: string;
             version_number: string;
         }[];
-        return data
-            .filter((version) => version.files.length > 0)
+        return versions
             .map((version) => {
                 const file = version.files.find((file) => file.primary) || version.files[0];
                 return {
                     date: +new Date(version.date_published),
                     hash: file.hashes.sha1,
-                    name: version.name,
+                    id: version.project_id,
                     path: file.filename,
                     url: file.url,
                     version: version.version_number
