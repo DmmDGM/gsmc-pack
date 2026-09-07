@@ -1,6 +1,6 @@
 // Imports
 import nodeAssert from "node:assert";
-import { _error } from "./common";
+import { _error, MinecraftModFlavor } from "./common";
 import { version } from "../package.json";
 
 /** The Modrinth registry. */
@@ -59,18 +59,80 @@ export class ModrinthRegistry {
     }
 
     /**
-     * Fetches the Modrinth project ID from a mod's file hash.
-     * @param hash The mod's file hash.
-     * @returns The equivalent project ID from Modrinth.
+     * Fetches a mod's Modrinth project ID from its file hash.
+     * @param hash The file hash of the mod.
+     * @returns The Modrinth project ID of this mod.
      */
     static async fetchProjectIDFromFileHash(hash: string): Promise<string> {
         // Retrieves response from Modrinth
         const url = ModrinthRegistry.createBaseURL(`/version_file/${hash}`);
         const response = await ModrinthRegistry.createGetRequest(url);
+        nodeAssert(response.ok, _error("MODRINTH:NO_SUCH_FILE_HASH", { hash }));
         
         // Parses 'project_id' field from data
-        const data = await response.json();
-        nodeAssert("project_id" in data, _error("MODRINTH:MISSING_FILE_HASH", { hash }));
+        const data = await response.json() as {
+            project_id: string;
+        };
         return data["project_id"];
+    }
+
+    /**
+     * Fetches a mod's Modrinth releases from its project ID.
+     * @param id The project ID of the mod.
+     * @param flavor The flavor of the mod.
+     * @param version The version of the Minecraft instance.
+     * @returns The Modrinth releases of this mod.
+     */
+    static async fetchVersionsFromProjectID(id: string, flavor: MinecraftModFlavor, version: string): Promise<{
+        date: number;
+        hash: string;
+        name: string;
+        path: string;
+        url: string;
+        version: string;   
+    }[]> {
+        // Translates mod flavor to Modrinth-parsable loader
+        const loader = {
+            [ MinecraftModFlavor.FABRIC ]: "fabric",
+            [ MinecraftModFlavor.FORGE ]: "forge",
+            [ MinecraftModFlavor.NEO_FORGE ]: "neoforge"
+        }[flavor];
+        
+        // Retrieves response from Modrinth
+        const url = ModrinthRegistry.createBaseURL(`/project/${id}/version`);
+        url.searchParams.append("loaders", JSON.stringify([ loader ]));
+        url.searchParams.append("game_versions", JSON.stringify([ version ]));
+        url.searchParams.append("include_changelog", JSON.stringify(false));
+        const response = await ModrinthRegistry.createGetRequest(url);
+        nodeAssert(response.ok, _error("MODRINTH:NO_SUCH_PROJECT_ID", { id }));
+
+        // Parses relevant fields from data
+        const data = await response.json() as {
+            date_published: string;
+            files: {
+                filename: string;
+                hashes: {
+                    sha1: string;
+                };
+                primary: boolean;
+                url: string;
+            }[];
+            name: string;
+            version_number: string;
+        }[];
+        return data
+            .filter((version) => version.files.length > 0)
+            .map((version) => {
+                const file = version.files.find((file) => file.primary) || version.files[0];
+                return {
+                    date: +new Date(version.date_published),
+                    hash: file.hashes.sha1,
+                    name: version.name,
+                    path: file.filename,
+                    url: file.url,
+                    version: version.version_number
+                };
+            })
+            .sort((a, b) => b.date - a.date);
     }
 }
