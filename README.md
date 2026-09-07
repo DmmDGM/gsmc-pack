@@ -6,6 +6,10 @@ A simple command-line based Minecraft package manager.
 
 Work in progress...
 
+## Demo
+
+![demo video](/docs/2026-09-07-14-20-56.gif)
+
 ## Roadmap
 
 basics
