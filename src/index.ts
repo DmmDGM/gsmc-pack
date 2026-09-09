@@ -1,10 +1,13 @@
 // Imports
 import nodePath from "node:path";
 import { MinecraftInstance } from "./model/instance";
+import { CurseForgeRegistry } from "./registry/curseforge";
 
 // Temporary test code
-const dotMinecraftPath = nodePath.resolve("/home/dmmdgm/.local/share/multimc/instances/Geesecraft S6 (1.21.5)/.minecraft/");
-const instance = new MinecraftInstance(dotMinecraftPath);
-await instance.initPackFile("1.21.5");
-const [ successes, failures ] = await instance.resyncAddons();
-console.log("Failed resync:", failures.map((failure) => failure.path).join(" "));
+// const dotMinecraftPath = nodePath.resolve("/home/dmmdgm/.local/share/multimc/instances/Geesecraft S6 (1.21.5)/.minecraft/");
+// const instance = new MinecraftInstance(dotMinecraftPath);
+// await instance.initPackFile("1.21.5");
+// const [ successes, failures ] = await instance.resyncAddons();
+// console.log("Failed resync:", failures.map((failure) => failure.path).join(" "));
+
+console.log(await CurseForgeRegistry.fetchUpstreamsFromModID(349630))

@@ -114,10 +114,10 @@ export class CurseForgeRegistry {
         const response = await CurseForgeRegistry.createPostRequest(url, {
             fingerprints: [ fingerprint ]
         });
-        nodeAssert(response.ok, format("CURSE_FORGE:NO_SUCH_FILE_FINGERPRINT", { fingerprint: fingerprint.toString() }));
+        nodeAssert(response.ok, format("CURSE_FORGE:NO_SUCH_FILE_FINGERPRINT", { fingerprint }));
         
         // Parses relevant fields from response
-        const { data: { exactMatches: matches }} = await response.json() as {
+        const { data: { exactMatches: matches } } = await response.json() as {
             data: {
                 exactMatches: {
                     id: number;
@@ -134,10 +134,10 @@ export class CurseForgeRegistry {
                 }[];
             };
         };
-        nodeAssert(matches.length > 0, format("CURSE_FORGE:NO_SUCH_FILE_FINGERPRINT", { fingerprint: fingerprint.toString() }));
+        nodeAssert(matches.length > 0, format("CURSE_FORGE:NO_SUCH_FILE_FINGERPRINT", { fingerprint }));
         const match = matches[0];
         const hash = match.file.hashes.find((hash) => hash.algo === 1);
-        nodeAssert(typeof hash !== "undefined", format("CURSE_FORGE:MISSING_FILE_HASH", { fingerprint: fingerprint.toString() }));
+        nodeAssert(typeof hash !== "undefined", format("CURSE_FORGE:MISSING_FILE_HASH", { fingerprint }));
         return {
             date: +new Date(match.file.fileDate),
             file: match.file.fileName,
@@ -146,5 +146,40 @@ export class CurseForgeRegistry {
             url: match.file.downloadUrl ?? `https://www.curseforge.com/api/v1/mods/${match.id}/files/${match.file.id}/download`,
             version: match.file.id.toString()
         };
+    }
+
+    static async fetchUpstreamsFromModID(id: number): Promise<MinecraftUpstream[]> {
+        // Retrieves response from CurseForge
+        const url = CurseForgeRegistry.createBaseURL(`/mods/${id}/files`);
+        const response = await CurseForgeRegistry.createGetRequest(url);
+        nodeAssert(response.ok, format("CURSE_FORGE:NO_SUCH_MOD_ID", { id }));
+        
+        // Parses relevant fields from response
+        const { data: mods } = await response.json() as {
+            data: {
+                downloadUrl: string;
+                fileDate: string;
+                fileName: string;
+                hashes: {
+                    algo: number;
+                    value: string;
+                }[];
+                id: number;
+                modId: number;
+            }[];
+        };
+        nodeAssert(mods.length > 0, format("CURSE_FORGE:NO_SUCH_MOD_ID", { id }));
+        return mods.map((mod) => {
+            const hash = mod.hashes.find((hash) => hash.algo === 1);
+            nodeAssert(typeof hash !== "undefined", format("CURSE_FORGE:MISSING_FILE_HASH", { id }));
+            return {
+                date: +new Date(mod.fileDate),
+                file: mod.fileName,
+                hash: hash.value,
+                id: mod.id.toString(),
+                url: mod.downloadUrl ?? `https://www.curseforge.com/api/v1/mods/${mod.modId}/files/${mod.id}/download`,
+                version: mod.id.toString()
+            };
+        });
     }
 }
