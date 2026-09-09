@@ -1,7 +1,7 @@
 // Imports
 import nodePath from "node:path";
-import { MinecraftInstance } from "./instance";
-import { MinecraftModFlavor } from "./common";
+import { MinecraftInstance } from "./model/instance";
+import { MinecraftModFlavor } from "./core/common";
 
 // Temporary test code
 const dotMinecraftPath = nodePath.resolve("/home/dmmdgm/.local/share/multimc/instances/Geesecraft S6 (1.21.5)/.minecraft/");

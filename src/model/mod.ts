@@ -3,9 +3,9 @@ import type { GSMCPackJSON } from "./instance";
 import nodeAssert from "node:assert";
 import curseforge from "@meza/curseforge-fingerprint";
 import AdmZip from "adm-zip";
-import { _error, MinecraftAddonType, MinecraftModFlavor, MinecraftRegistryType } from "./common";
-import { CurseForgeRegistry } from "./curseforge";
-import { ModrinthRegistry } from "./modrinth";
+import { _error, MinecraftAddonType, MinecraftModFlavor, MinecraftRegistryType } from "../core/common";
+import { CurseForgeRegistry } from "../registry/curseforge";
+import { ModrinthRegistry } from "../registry/modrinth";
 
 /** A representation of a Minecraft mod. */
 export abstract class MinecraftMod {

@@ -2,7 +2,7 @@
 import nodeFs from "node:fs/promises";
 import nodePath from "node:path";
 import { AbstractMinecraftMod, FlavoredMinecraftMod } from "./mod";
-import { MinecraftAddonType, MinecraftModFlavor } from "./common";
+import { MinecraftAddonType, MinecraftModFlavor } from "../core/common";
 
 /** A representation of the 'gsmc-pack.json' interface. */
 export interface GSMCPackJSON {

@@ -1,7 +1,7 @@
 // Imports
 import nodeAssert from "node:assert";
-import { _error, readCurseForgeAPIKey } from "./common";
-import { version } from "../package.json";
+import { _error, readCurseForgeAPIKey } from "../core/common";
+import { version } from "../../package.json";
 
 /** The CurseForge registry. */
 export class CurseForgeRegistry {

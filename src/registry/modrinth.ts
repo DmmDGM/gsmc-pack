@@ -1,7 +1,7 @@
 // Imports
 import nodeAssert from "node:assert";
-import { _error, MinecraftModFlavor } from "./common";
-import { version } from "../package.json";
+import { _error, MinecraftModFlavor } from "../core/common";
+import { version } from "../../package.json";
 
 /** The Modrinth registry. */
 export class ModrinthRegistry {
