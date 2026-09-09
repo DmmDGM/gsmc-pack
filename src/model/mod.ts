@@ -1,9 +1,8 @@
 // Imports
-import type { GSMCPackJSON } from "./instance";
 import nodeAssert from "node:assert";
-import curseforge from "@meza/curseforge-fingerprint";
+import fingerprinter from "@meza/curseforge-fingerprint";
 import AdmZip from "adm-zip";
-import { _error, MinecraftAddonType, MinecraftModFlavor, MinecraftRegistryType } from "../core/common";
+import { format, MinecraftAddon, MinecraftAddonType, MinecraftModFlavor, MinecraftRegistryType } from "../core/common";
 import { CurseForgeRegistry } from "../registry/curseforge";
 import { ModrinthRegistry } from "../registry/modrinth";
 
@@ -19,22 +18,19 @@ export abstract class MinecraftMod {
     constructor(path: string) {
         // Ensures '.jar' file extension
         const isModDotJar = path.endsWith(".jar") || path.endsWith(".jar.disabled");
-        nodeAssert(isModDotJar, _error("MOD:NOT_A_DOT_JAR", { path: path }));
+        nodeAssert(isModDotJar, format("MOD:NOT_A_DOT_JAR", { path }));
         
         // Initializes class
         this.path = path;
     }
-}
 
-/** A representation of an abstract Minecraft mod. */
-export class AbstractMinecraftMod extends MinecraftMod {
     /**
      * Compiles the CurseForge file fingerprint of this mod.
      * @returns This mod's CurseForge file fingerprint.
      */
     compileFileFingerprint(): number {
         // Fingerprints file content
-        return curseforge.fingerprint(this.path);
+        return fingerprinter.fingerprint(this.path);
     }
 
     /**
@@ -45,19 +41,22 @@ export class AbstractMinecraftMod extends MinecraftMod {
         // Hashes file content
         return Bun.CryptoHasher.hash("sha1", await Bun.file(this.path).bytes()).toHex();
     }
+}
 
+/** A representation of an abstract Minecraft mod. */
+export class AbstractMinecraftMod extends MinecraftMod {
     /**
-     * Parses this mod as a Fabric mod.
+     * Resolves this mod as a Fabric mod.
      * @returns A Fabric representation of this mod.
      */
-    async parseAsFabricMod(): Promise<FlavoredMinecraftMod> {
+    async resolveAsFabricMod(): Promise<FlavoredMinecraftMod> {
         // Ensures existence of 'fabric.mod.json'
         const zip = new AdmZip(this.path);
         const entry = zip.getEntry("fabric.mod.json");
-        nodeAssert(entry !== null, _error("FABRIC_MOD:MISSING_FABRIC_MOD_JSON", { path: this.path }));
+        nodeAssert(entry !== null, format("FABRIC_MOD:MISSING_FABRIC_MOD_JSON", { path: this.path }));
 
         // Parses metadata from 'fabric.mod.json'
-        const metadata = await new Promise<GSMCPackJSON["addons"][string]>((resolve, reject) => {
+        const metadata = await new Promise<MinecraftAddon>((resolve, reject) => {
             entry.getDataAsync(async (data, error) => {
                 // Checks zip error
                 if(typeof error !== "undefined") reject(error);
@@ -65,7 +64,7 @@ export class AbstractMinecraftMod extends MinecraftMod {
                 // Parses metadata json
                 try {
                     const json = JSON.parse(data.toString());
-                    nodeAssert("id" in json && "name" in json && "version" in json, _error("FABRIC_MOD:BROKEN_FABRIC_MOD_JSON", { path: this.path }));
+                    nodeAssert("id" in json && "name" in json && "version" in json, format("FABRIC_MOD:BROKEN_FABRIC_MOD_JSON", { path: this.path }));
                     resolve({
                         flavor: MinecraftModFlavor.FABRIC,
                         id: json["id"],
@@ -86,22 +85,22 @@ export class AbstractMinecraftMod extends MinecraftMod {
         return new FlavoredMinecraftMod(this.path, hash, metadata);
     }
 
-    async parseAsForgeMod() {}
-    async parseAsNeoForgeMod() {}
+    async resolveAsForgeMod() {}
+    async resolveAsNeoForgeMod() {}
 
     /**
-     * Parses this mod as a flavored mod.
+     * Resolves this mod as a flavored mod.
      * @returns A flavored representation of this mod.
      */
-    async parseAsFlavoredMod(): Promise<FlavoredMinecraftMod> {
-        // Attempts to parse this mod as Fabric mod
+    async resolveAsFlavoredMod(): Promise<FlavoredMinecraftMod> {
+        // Attempts to resolve this mod as Fabric mod
         try {
-            return await this.parseAsFabricMod();
+            return await this.resolveAsFabricMod();
         }
         catch {}
 
         // Throws error
-        nodeAssert(false, _error("MOD:INVALID_OR_UNSUPPORTED_FLAVOR", { path: this.path }));
+        nodeAssert(false, format("MOD:INVALID_OR_UNSUPPORTED_FLAVOR", { path: this.path }));
     }
 
     /**
@@ -112,21 +111,21 @@ export class AbstractMinecraftMod extends MinecraftMod {
         // Checks if Modrinth has this mod
         try {
             const hash = await this.compileFileHash();
-            const project = await ModrinthRegistry.fetchProjectFromFileHash(hash);
-            return `${MinecraftRegistryType.MODRINTH}::${project.id}+${project.version}::${project.url}`;
+            const upstream = await ModrinthRegistry.fetchUpstreamFromFileHash(hash);
+            return `${MinecraftRegistryType.MODRINTH}::${upstream.id}@${upstream.version}::${upstream.url}`;
         }
         catch {}
 
         // Checks if CurseForge has this mod
         try {
             const fingerprint = this.compileFileFingerprint();
-            const match = await CurseForgeRegistry.fetchMatchFromFileFingerprint(fingerprint);
-            return `${MinecraftRegistryType.CURSE_FORGE}::${match.id}+${match.version}::${match.url}`;
+            const upstream = await CurseForgeRegistry.fetchUpstreamFromFileFingerprint(fingerprint);
+            return `${MinecraftRegistryType.CURSE_FORGE}::${upstream.id}@${upstream.version}::${upstream.url}`;
         }
         catch {}
 
         // Throws error
-        nodeAssert(false, _error("MOD:INVALID_OR_UNSUPPORTED_REGISTRY", { path: this.path }));
+        nodeAssert(false, format("MOD:INVALID_OR_UNSUPPORTED_REGISTRY", { path: this.path }));
     }
 }
 
@@ -135,10 +134,10 @@ export class FlavoredMinecraftMod extends AbstractMinecraftMod {
     /** The sha1 file hash of this mod. */
     readonly hash: string;
     /** The metadata of this mod. */
-    readonly metadata: GSMCPackJSON["addons"][string];
+    readonly metadata: MinecraftAddon;
     
     /** Creates a new Fabric Minecraft mod representation. */
-    constructor(path: string, hash: string, metadata: GSMCPackJSON["addons"][string]) {
+    constructor(path: string, hash: string, metadata: MinecraftAddon) {
         // Extends parent
         super(path);
 

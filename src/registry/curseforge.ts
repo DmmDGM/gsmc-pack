@@ -1,6 +1,6 @@
 // Imports
 import nodeAssert from "node:assert";
-import { _error, readCurseForgeAPIKey } from "../core/common";
+import { format, MinecraftUpstream, readCurseForgeAPIKey } from "../core/common";
 import { version } from "../../package.json";
 
 /** The CurseForge registry. */
@@ -33,7 +33,7 @@ export class CurseForgeRegistry {
      */
     static async createGetRequest(url: URL, retry: number = CurseForgeRegistry.DEFAULT_RETRIES, timeout: number = CurseForgeRegistry.DEFAULT_TIMEOUT): Promise<Response> {
         // Ensures CurseForge API origin
-        nodeAssert(url.href.startsWith(CurseForgeRegistry.API), _error("CURSE_FORGE:REQUEST_EXTERNAL_URL", { url: url.toString() }));
+        nodeAssert(url.href.startsWith(CurseForgeRegistry.API), format("CURSE_FORGE:REQUEST_EXTERNAL_URL", { url: url.toString() }));
 
         // Creates fetch headers
         const headers = new Headers();
@@ -57,7 +57,7 @@ export class CurseForgeRegistry {
         }
 
         // Throws error
-        nodeAssert(false, _error("CURSE_FORGE:RESPONSE_RATE_LIMIT_TIMEOUT", { url: url.toString() }));
+        nodeAssert(false, format("CURSE_FORGE:RESPONSE_RATE_LIMIT_TIMEOUT", { url: url.toString() }));
     }
 
     /**
@@ -69,7 +69,7 @@ export class CurseForgeRegistry {
      */
     static async createPostRequest(url: URL, payload: unknown, retry: number = CurseForgeRegistry.DEFAULT_RETRIES, timeout: number = CurseForgeRegistry.DEFAULT_TIMEOUT): Promise<Response> {
         // Ensures CurseForge API origin
-        nodeAssert(url.href.startsWith(CurseForgeRegistry.API), _error("CURSE_FORGE:REQUEST_EXTERNAL_URL", { url: url.toString() }));
+        nodeAssert(url.href.startsWith(CurseForgeRegistry.API), format("CURSE_FORGE:REQUEST_EXTERNAL_URL", { url: url.toString() }));
 
         // Creates fetch headers
         const headers = new Headers();
@@ -100,28 +100,21 @@ export class CurseForgeRegistry {
         }
 
         // Throws error
-        nodeAssert(false, _error("CURSE_FORGE:RESPONSE_RATE_LIMIT_TIMEOUT", { url: url.toString() }));
+        nodeAssert(false, format("CURSE_FORGE:RESPONSE_RATE_LIMIT_TIMEOUT", { url: url.toString() }));
     }
 
     /**
-     * Fetches a mod's CurseForge match from its file fingerprint.
+     * Fetches a mod's CurseForge upstream from its file fingerprint.
      * @param fingerprint The file fingerprint of the mod.
-     * @returns The CurseForge match of this mod.
+     * @returns The CurseForge upstream of this mod.
      */
-    static async fetchMatchFromFileFingerprint(fingerprint: number): Promise<{
-        date: number;
-        hash: string;
-        id: number;
-        path: string;
-        url: string;
-        version: number;
-    }> {
+    static async fetchUpstreamFromFileFingerprint(fingerprint: number): Promise<MinecraftUpstream> {
         // Retrieves response from CurseForge
         const url = CurseForgeRegistry.createBaseURL("/fingerprints");
         const response = await CurseForgeRegistry.createPostRequest(url, {
             fingerprints: [ fingerprint ]
         });
-        nodeAssert(response.ok, _error("CURSE_FORGE:NO_SUCH_FILE_FINGERPRINT", { fingerprint: fingerprint.toString() }));
+        nodeAssert(response.ok, format("CURSE_FORGE:NO_SUCH_FILE_FINGERPRINT", { fingerprint: fingerprint.toString() }));
         
         // Parses relevant fields from response
         const { data: { exactMatches: matches }} = await response.json() as {
@@ -129,29 +122,29 @@ export class CurseForgeRegistry {
                 exactMatches: {
                     id: number;
                     file: {
-                        fileName: string;
+                        downloadUrl: string;
                         fileDate: string;
+                        fileName: string;
                         hashes: {
-                            value: string;
                             algo: number;
+                            value: string;
                         }[];
                         id: number;
-                        downloadUrl: string;
                     };
                 }[];
             };
         };
-        nodeAssert(matches.length > 0, _error("CURSE_FORGE:NO_SUCH_FILE_FINGERPRINT", { fingerprint: fingerprint.toString() }));
+        nodeAssert(matches.length > 0, format("CURSE_FORGE:NO_SUCH_FILE_FINGERPRINT", { fingerprint: fingerprint.toString() }));
         const match = matches[0];
         const hash = match.file.hashes.find((hash) => hash.algo === 1);
-        nodeAssert(typeof hash !== "undefined", _error("CURSE_FORGE:MISSING_FILE_HASH", { fingerprint: fingerprint.toString() }));
+        nodeAssert(typeof hash !== "undefined", format("CURSE_FORGE:MISSING_FILE_HASH", { fingerprint: fingerprint.toString() }));
         return {
             date: +new Date(match.file.fileDate),
+            file: match.file.fileName,
             hash: hash.value,
-            id: match.id,
-            path: match.file.fileName,
+            id: match.id.toString(),
             url: match.file.downloadUrl ?? `https://www.curseforge.com/api/v1/mods/${match.id}/files/${match.file.id}/download`,
-            version: match.file.id
+            version: match.file.id.toString()
         };
     }
 }

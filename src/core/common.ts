@@ -25,13 +25,50 @@ export enum MinecraftRegistryType {
     MODRINTH = "MODRINTH"
 }
 
+/** A representation of the 'gsmc-pack.json' interface. */
+export interface GSMCPackJSON {
+    addons: { [ Hash in string ]: MinecraftAddon };
+    description: string;
+    environment: MinecraftEnvironment;
+    name: string;
+    schema: number;
+}
+
+/** A representation of the Minecraft addon interface. */
+export interface MinecraftAddon {
+    flavor: MinecraftModFlavor;
+    id: string;
+    name: string;
+    type: MinecraftAddonType;
+    upstream: string;
+    version: string;
+}
+
+/** A representation of the Minecraft environment interface. */
+export interface MinecraftEnvironment {
+    mod: MinecraftModFlavor | null;
+    plugin: null;
+    shader: null;
+    version: string;
+}
+
+/** A representation of the Minecraft upstream interface. */
+export interface MinecraftUpstream {
+    date: number;
+    file: string;
+    hash: string;
+    id: string;
+    url: string;
+    version: string;
+}
+
 /**
  * Formats a template error message with dynamic values.
  * @param code The error code. See `errors.json` for a list of available error codes.
  * @param values An object of dynamic values. For example, `{ "key": "value" }` will replace all instances of `"$key"` with `"value"`.
  * @returns A formatted error message.
  */
-export function _error(code: keyof typeof errors, values: { [ Value in string ]: string } = {}): string {
+export function format(code: keyof typeof errors, values: { [ Value in string ]: string } = {}): string {
     // Generates error message
     const message = errors[code] ?? `This is a fallback error message. The error code '${code}' does not exist.`;
     return message.replaceAll(/\$(\w+)/g, (match, value) => value in values ? values[value] : match);

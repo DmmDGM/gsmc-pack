@@ -1,6 +1,6 @@
 // Imports
 import nodeAssert from "node:assert";
-import { _error, MinecraftModFlavor } from "../core/common";
+import { format, MinecraftModFlavor, MinecraftUpstream } from "../core/common";
 import { version } from "../../package.json";
 
 /** The Modrinth registry. */
@@ -33,7 +33,7 @@ export class ModrinthRegistry {
      */
     static async createGetRequest(url: URL, retry: number = ModrinthRegistry.DEFAULT_RETRIES, timeout: number = ModrinthRegistry.DEFAULT_TIMEOUT): Promise<Response> {
         // Ensures Modrinth API origin
-        nodeAssert(url.href.startsWith(ModrinthRegistry.API), _error("MODRINTH:REQUEST_EXTERNAL_URL", { url: url.toString() }));
+        nodeAssert(url.href.startsWith(ModrinthRegistry.API), format("MODRINTH:REQUEST_EXTERNAL_URL", { url: url.toString() }));
         
         // Creates fetch headers
         const headers = new Headers();
@@ -55,26 +55,19 @@ export class ModrinthRegistry {
         }
 
         // Throws error
-        nodeAssert(false, _error("MODRINTH:RESPONSE_RATE_LIMIT_TIMEOUT", { url: url.toString() }));
+        nodeAssert(false, format("MODRINTH:RESPONSE_RATE_LIMIT_TIMEOUT", { url: url.toString() }));
     }
 
     /**
-     * Fetches a mod's Modrinth project from its file hash.
+     * Fetches a mod's Modrinth upstream from its file hash.
      * @param hash The file hash of the mod.
-     * @returns The Modrinth project of this mod.
+     * @returns The Modrinth upstream of this mod.
      */
-    static async fetchProjectFromFileHash(hash: string): Promise<{
-        date: number;
-        hash: string;
-        id: string;
-        path: string;
-        url: string;
-        version: string;
-    }> {
+    static async fetchUpstreamFromFileHash(hash: string): Promise<MinecraftUpstream> {
         // Retrieves response from Modrinth
         const url = ModrinthRegistry.createBaseURL(`/version_file/${hash}`);
         const response = await ModrinthRegistry.createGetRequest(url);
-        nodeAssert(response.ok, _error("MODRINTH:NO_SUCH_FILE_HASH", { hash }));
+        nodeAssert(response.ok, format("MODRINTH:NO_SUCH_FILE_HASH", { hash }));
         
         // Parses relevant fields from response
         const project = await response.json() as {
@@ -93,29 +86,22 @@ export class ModrinthRegistry {
         const file = project.files.find((file) => file.primary) || project.files[0];
         return {
             date: +new Date(project.date_published),
+            file: file.filename,
             hash: file.hashes.sha1,
             id: project.project_id,
-            path: file.filename,
             url: file.url,
             version: project.version_number
         };
     }
 
     /**
-     * Fetches a mod's Modrinth releases from its project ID.
+     * Fetches a mod's Modrinth upstreams from its project ID.
      * @param id The project ID of the mod.
      * @param flavor The flavor of the mod.
      * @param version The version of the Minecraft instance.
-     * @returns The Modrinth releases of this mod.
+     * @returns The Modrinth upstreams of this mod.
      */
-    static async fetchVersionsFromProjectID(id: string, flavor: MinecraftModFlavor, version: string): Promise<{
-        date: number;
-        hash: string;
-        id: string;
-        path: string;
-        url: string;
-        version: string;   
-    }[]> {
+    static async fetchUpstreamsFromProjectID(id: string, flavor: MinecraftModFlavor, version: string): Promise<MinecraftUpstream[]> {
         // Translates mod flavor to Modrinth-parsable loader
         const loader = {
             [ MinecraftModFlavor.FABRIC ]: "fabric",
@@ -129,7 +115,7 @@ export class ModrinthRegistry {
         url.searchParams.append("game_versions", JSON.stringify([ version ]));
         url.searchParams.append("include_changelog", JSON.stringify(false));
         const response = await ModrinthRegistry.createGetRequest(url);
-        nodeAssert(response.ok, _error("MODRINTH:NO_SUCH_PROJECT_ID", { id }));
+        nodeAssert(response.ok, format("MODRINTH:NO_SUCH_PROJECT_ID", { id }));
 
         // Parses relevant fields from response
         const versions = await response.json() as {
@@ -145,18 +131,16 @@ export class ModrinthRegistry {
             project_id: string;
             version_number: string;
         }[];
-        return versions
-            .map((version) => {
-                const file = version.files.find((file) => file.primary) || version.files[0];
-                return {
-                    date: +new Date(version.date_published),
-                    hash: file.hashes.sha1,
-                    id: version.project_id,
-                    path: file.filename,
-                    url: file.url,
-                    version: version.version_number
-                };
-            })
-            .sort((a, b) => b.date - a.date);
+        return versions.map((version) => {
+            const file = version.files.find((file) => file.primary) || version.files[0];
+            return {
+                date: +new Date(version.date_published),
+                file: file.filename,
+                hash: file.hashes.sha1,
+                id: version.project_id,
+                url: file.url,
+                version: version.version_number
+            };
+        });
     }
 }
