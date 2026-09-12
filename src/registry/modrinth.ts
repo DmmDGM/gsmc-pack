@@ -93,17 +93,13 @@ export class ModrinthRegistry {
         // Parses file from project
         const file = project.files.find((file) => file.primary) || project.files[0];
 
-        // Parses Minecraft from project
-        const minecraft = project.game_versions.join(";");
-        nodeAssert(minecraft.length, format("MODRINTH:UPSTREAM_MISSING_MINECRAFT_VERSION_FILE_HASH", { hash }));
-
         // Returns upstream
         return {
             date: +new Date(project.date_published),
             file: file.filename,
             hash: file.hashes.sha1,
             major: project.project_id,
-            minecraft: minecraft,
+            minecrafts: project.game_versions,
             minor: project.version_number,
             registry: MinecraftAddonRegistry.MODRINTH,
             url: file.url
@@ -156,14 +152,12 @@ export class ModrinthRegistry {
         // Returns upstreams
         return versions.map((version) => {
             const file = version.files.find((file) => file.primary) || version.files[0];
-            const minecraft = version.game_versions.join(";");
-            nodeAssert(minecraft.length, format("MODRINTH:UPSTREAM_MISSING_MINECRAFT_VERSION_MAJOR", { major }));
             return {
                 date: +new Date(version.date_published),
                 file: file.filename,
                 hash: file.hashes.sha1,
                 major: version.project_id,
-                minecraft: minecraft,
+                minecrafts: version.game_versions,
                 minor: version.version_number,
                 registry: MinecraftAddonRegistry.MODRINTH,
                 url: file.url,

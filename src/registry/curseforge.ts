@@ -151,17 +151,13 @@ export class CurseForgeRegistry {
         const hash = match.file.hashes.find((hash) => hash.algo === 1);
         nodeAssert(typeof hash !== "undefined", format("CURSE_FORGE:UPSTREAM_MISSING_FILE_HASH_FILE_FINGERPRINT", { fingerprint }));
 
-        // Parses Minecraft from match
-        const minecraft = match.file.gameVersions.join(";");
-        nodeAssert(minecraft.length, format("CURSE_FORGE:UPSTREAM_MISSING_MINECRAFT_VERSION_FILE_FINGERPRINT", { fingerprint }));
-        
         // Returns upstream
         return {
             date: +new Date(match.file.fileDate),
             file: match.file.fileName,
             hash: hash.value,
             major: match.id.toString(),
-            minecraft: minecraft,
+            minecrafts: match.file.gameVersions,
             minor: match.file.id.toString(),
             registry: MinecraftAddonRegistry.CURSE_FORGE,
             url: match.file.downloadUrl ?? `https://www.curseforge.com/api/v1/mods/${match.id}/files/${match.file.id}/download`
@@ -188,7 +184,7 @@ export class CurseForgeRegistry {
         // Creates request URL
         const url = CurseForgeRegistry.createBaseURL(`/mods/${major}/files`);
         url.searchParams.append("modLoaderType", JSON.stringify(loader));
-        url.searchParams.append("gameVersion", JSON.stringify(minecraft));
+        url.searchParams.append("gameVersion", minecraft);
         
         // Awaits response from CurseForge
         const response = await CurseForgeRegistry.createGetRequest(url);
@@ -209,20 +205,18 @@ export class CurseForgeRegistry {
                 modId: number;
             }[];
         };
-        nodeAssert(files.length > 0, format("CURSE_FORGE:UPSTREAM_NO_SUCH_UPSTREAM_MAJOR", { major }));
+        nodeAssert(files.length, format("CURSE_FORGE:UPSTREAM_NO_SUCH_UPSTREAM_MAJOR", { major }));
 
         // Returns upstreams
         return files.map((file) => {
             const hash = file.hashes.find((hash) => hash.algo === 1);
             nodeAssert(typeof hash !== "undefined", format("CURSE_FORGE:UPSTREAM_MISSING_FILE_HASH_MAJOR", { major }));
-            const minecraft = file.gameVersions.join(";");
-            nodeAssert(minecraft.length, format("CURSE_FORGE:UPSTREAM_MISSING_MINECRAFT_VERSION_MAJOR", { major }));
             return {
                 date: +new Date(file.fileDate),
                 file: file.fileName,
                 hash: hash.value,
                 major: file.modId.toString(),
-                minecraft: minecraft,
+                minecrafts: file.gameVersions,
                 minor: file.id.toString(),
                 registry: MinecraftAddonRegistry.CURSE_FORGE,
                 url: file.downloadUrl ?? `https://www.curseforge.com/api/v1/mods/${file.modId}/files/${file.id}/download`,

@@ -1,15 +1,16 @@
 // Imports
 import type { MinecraftInstance } from "./instance";
 import nodeAssert from "node:assert";
-import { relative as relativePath } from "node:path";
+import { basename as resolveBasename, relative as relativePath } from "node:path";
 import { format } from "../core/errors";
 import { MinecraftAddon } from "./addon";
 import { MinecraftAddonFlavor } from "../core/flavor";
 import { MinecraftAddonMetadata } from "../core/metadata";
+import { MinecraftAddonRegistry } from "../core/registries";
 import { MinecraftAddonType } from "../core/type";
+import { MinecraftAddonUpstream } from "../core/upstream";
 import { CurseForgeRegistry } from "../registry/curseforge";
 import { ModrinthRegistry } from "../registry/modrinth";
-import { MinecraftAddonRegistry } from "../core/registries";
 
 /** Represents a Minecraft mod. */
 export class MinecraftMod extends MinecraftAddon {
@@ -17,15 +18,45 @@ export class MinecraftMod extends MinecraftAddon {
      * Creates a new Minecraft mod instance.
      * @param instance The instance that owns this mod.
      * @param path The path to this mod.
+     * @param hash The sha1 hash of this mod.
      * @param metadata The metadata of this mod.
      */
-    constructor(instance: MinecraftInstance, path: string, metadata: MinecraftAddonMetadata | null) {
+    constructor(instance: MinecraftInstance, path: string, hash: string | null, metadata: MinecraftAddonMetadata | null) {
         // Ensures '.jar' file extension
         const isSourceFileDotJar = path.endsWith(".jar") || path.endsWith(".jar.disabled");
         nodeAssert(isSourceFileDotJar, format("MOD:SOURCE_FILE_NOT_A_DOT_JAR", { path }));
 
         // Initializes parent
-        super(instance, path, metadata);
+        super(instance, path, hash, metadata);
+    }
+
+    /**
+     * Checks for available updates from the upstream of this mod.
+     * @returns Either the latest available update of this mod or null.
+     */
+    async checkUpdatableUpstream(): Promise<MinecraftAddonUpstream | null> {
+        // Reads 'gsmc-pack.json' file
+        const pack = await this.instance.readGSMCPackFile();
+
+        // Parses upstream from metadata
+        const { major, minecrafts, registry } = this.parseUpstreamFromMetadata();
+        
+        // Ignores Minecraft override
+        if(!minecrafts.includes(pack.minecraft)) return null;
+
+        // Checks upstream
+        switch(registry) {
+            case MinecraftAddonRegistry.CURSE_FORGE: {
+                const upstreams = await CurseForgeRegistry.fetchMinorUpstreamsFromMajor(major.toString(), this.metadata!.flavor, pack.minecraft);
+                const upstream = upstreams.sort((a, b) => b.date - a.date)[0];
+                return upstream.hash === this.hash ? null : upstream;
+            }
+            case MinecraftAddonRegistry.MODRINTH: {
+                const upstreams = await ModrinthRegistry.fetchMinorUpstreamsFromMajor(major.toString(), this.metadata!.flavor, pack.minecraft);
+                const upstream = upstreams.sort((a, b) => b.date - a.date)[0];
+                return upstream.hash === this.hash ? null : upstream;
+            }
+        }
     }
 
     /**
@@ -33,14 +64,10 @@ export class MinecraftMod extends MinecraftAddon {
      * @returns An array of the file being downloaded to, the size of the download, and the asynchronous promise for the download.
      */
     async downloadFileFromMetadata(): Promise<[ Bun.BunFile, number, Promise<boolean> ]> {
-        // Ensures addon metadata
-        nodeAssert(this.metadata, format("MOD:DOWNLOAD_MISSING_ADDON_METADATA", { path: this.path }));
-
         // Downloads mod file
-        const [ registry, ...parameters ] = this.metadata.upstream.split("::");
-        switch(registry as MinecraftAddonRegistry) {
+        const { registry, url } = this.parseUpstreamFromMetadata();
+        switch(registry) {
             case MinecraftAddonRegistry.CURSE_FORGE: {
-                const url = parameters[2];
                 const response = await fetch(url);
                 const file = Bun.file(this.path);
                 const size = parseInt(response.headers.get("content-length") ?? (0).toString());
@@ -51,7 +78,6 @@ export class MinecraftMod extends MinecraftAddon {
                 return [ file, size, download ];
             }
             case MinecraftAddonRegistry.MODRINTH: {
-                const url = parameters[2];
                 const response = await fetch(url);
                 const file = Bun.file(this.path);
                 const size = parseInt(response.headers.get("content-length") ?? (0).toString());
@@ -60,6 +86,38 @@ export class MinecraftMod extends MinecraftAddon {
                     resolve(true);
                 });
                 return [ file, size, download ];
+            }
+        }
+    }
+
+    /**
+     * Parses the upstream of this mod using its metadata.
+     * @returns The upstream of this mod.
+     */
+    parseUpstreamFromMetadata(): MinecraftAddonUpstream {
+        // Ensures file hash and addon metadata
+        nodeAssert(this.hash, format("MOD:UPSTREAM_MISSING_FILE_HASH", { path: this.path }));
+        nodeAssert(this.metadata, format("MOD:UPSTREAM_MISSING_ADDON_METADATA", { path: this.path }));
+
+        // Parses upstream
+        const [ registry, ...parameters ] = this.metadata.upstream.split("::") as [ MinecraftAddonRegistry, ...string[] ];
+        switch(registry) {
+            case MinecraftAddonRegistry.CURSE_FORGE:
+            case MinecraftAddonRegistry.MODRINTH: {
+                const [ major, minor ] = parameters[0].split("@");
+                const minecrafts = parameters[1].split(";");
+                const url = parameters[2];
+                const date = parseInt(parameters[3]);
+                return {
+                    date: date,
+                    file: resolveBasename(this.path),
+                    hash: this.hash,
+                    major: major,
+                    minecrafts: minecrafts,
+                    minor: minor,
+                    registry: registry,
+                    url: url
+                };
             }
         }
     }
@@ -105,7 +163,7 @@ export class MinecraftMod extends MinecraftAddon {
         });
 
         // Rebuilds instance from metadata
-        return new MinecraftMod(this.instance, this.path, metadata);
+        return new MinecraftMod(this.instance, this.path, this.hash ?? await this.compileSha1FileHash(), metadata);
     }
 
     /**
@@ -151,7 +209,7 @@ export class MinecraftMod extends MinecraftAddon {
         });
 
         // Rebuilds instance from metadata
-        return new MinecraftMod(this.instance, this.path, metadata);
+        return new MinecraftMod(this.instance, this.path, this.hash ?? await this.compileSha1FileHash(), metadata);
     }
 
     /**
@@ -197,7 +255,7 @@ export class MinecraftMod extends MinecraftAddon {
         });
 
         // Rebuilds instance from metadata
-        return new MinecraftMod(this.instance, this.path, metadata);
+        return new MinecraftMod(this.instance, this.path, this.hash ?? await this.compileSha1FileHash(), metadata);
     }
 
     /**
@@ -236,7 +294,7 @@ export class MinecraftMod extends MinecraftAddon {
         try {
             const hash = await this.compileSha1FileHash();
             const upstream = await ModrinthRegistry.fetchUpstreamFromFileHash(hash);
-            return `${upstream.registry}::${upstream.major}@${upstream.minor}::${upstream.minecraft}::${upstream.url}::${upstream.date}`;
+            return `${upstream.registry}::${upstream.major}@${upstream.minor}::${upstream.minecrafts.join(";")}::${upstream.url}::${upstream.date}`;
         }
         catch {}
 
@@ -244,7 +302,7 @@ export class MinecraftMod extends MinecraftAddon {
         try {
             const fingerprint = this.compileCurseForgeFileFingerprint();
             const upstream = await CurseForgeRegistry.fetchUpstreamFromFileFingerprint(fingerprint);
-            return `${upstream.registry}::${upstream.major}@${upstream.minor}::${upstream.minecraft}::${upstream.url}::${upstream.date}`;
+            return `${upstream.registry}::${upstream.major}@${upstream.minor}::${upstream.minecrafts.join(";")}::${upstream.url}::${upstream.date}`;
         }
         catch {}
 

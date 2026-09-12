@@ -15,7 +15,7 @@ export interface MinecraftAddonUpstream {
     major: string | number;
 
     /** The Minecraft version of this addon. */
-    minecraft: string;
+    minecrafts: string[];
     
     /** The minor registry pointer to this addon. */
     minor: string | number;

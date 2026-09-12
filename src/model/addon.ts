@@ -3,9 +3,12 @@ import type { MinecraftInstance } from "./instance";
 import AdmZip from "adm-zip";
 import fingerprinter from "@meza/curseforge-fingerprint";
 import { MinecraftAddonMetadata } from "../core/metadata";
+import { MinecraftAddonUpstream } from "../core/upstream";
 
 /** Represents a Minecraft addon. */
 export abstract class MinecraftAddon {
+    /** The sha1 hash of this addon. */
+    readonly hash: string | null;
     /** The instance that owns this addon. */
     readonly instance: MinecraftInstance;
     /** The metadata of this addon. */
@@ -17,14 +20,22 @@ export abstract class MinecraftAddon {
      * Creates a new Minecraft addon instance.
      * @param instance The instance that owns this addon.
      * @param path The path to this addon.
+     * @param hash The sha1 hash of this addon.
      * @param metadata The metadata of this addon.
      */
-    constructor(instance: MinecraftInstance, path: string, metadata: MinecraftAddonMetadata | null) {
+    constructor(instance: MinecraftInstance, path: string, hash: string | null, metadata: MinecraftAddonMetadata | null) {
         // Initializes instance
+        this.hash = hash;
         this.instance = instance;
         this.metadata = metadata;
         this.path = path;
     }
+
+    /**
+     * Checks for available updates from the upstream of this mod.
+     * @returns Either the latest available update of this mod or null.
+     */
+    abstract checkUpdatableUpstream(): Promise<MinecraftAddonUpstream | null>;
 
     /**
      * Compiles synchronously the CurseForge file fingerprint of this addon.
@@ -49,6 +60,12 @@ export abstract class MinecraftAddon {
      * @returns An array of the file being downloaded to, the size of the download, and the asynchronous promise for the download.
      */
     abstract downloadFileFromMetadata(): Promise<[ Bun.BunFile, number, Promise<boolean> ]>;
+
+    /**
+     * Parses the upstream of this addon using its metadata.
+     * @returns The upstream of this addon.
+     */
+    abstract parseUpstreamFromMetadata(): MinecraftAddonUpstream;
 
     /**
      * Creates an AdmZip instance of this addon.

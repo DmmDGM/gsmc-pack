@@ -6,6 +6,7 @@ import { MinecraftMod } from "./mod";
 import { MinecraftAddonFlavor } from "../core/flavor";
 import { GSMCPack } from "../core/gsmcpack";
 import { MinecraftAddonType } from "../core/type";
+import { MinecraftAddonUpstream } from "../core/upstream";
 
 /** Represents a Minecraft instance. */
 export class MinecraftInstance {
@@ -20,6 +21,10 @@ export class MinecraftInstance {
         // Initializes instance
         this.path = path;
     }
+
+    async addGSMCPackAddon(upstream: MinecraftAddonUpstream): Promise<void> {};
+    async removeGSMCPackAddon(hash: string): Promise<void> {};
+    async updateGSMCPackAddon(hash: string, upstream: MinecraftAddonUpstream): Promise<void> {};
 
     /**
      * Creates a new 'gsmc-pack.json' file in this instance.
@@ -64,7 +69,7 @@ export class MinecraftInstance {
             const metadata = pack.addons[hash];
             switch(metadata.type) {
                 case MinecraftAddonType.MOD: {
-                    addons.push(new MinecraftMod(this, resolvePath(this.path, metadata.path), metadata));
+                    addons.push(new MinecraftMod(this, resolvePath(this.path, metadata.path), hash, metadata));
                     break;
                 }
             }
@@ -97,11 +102,11 @@ export class MinecraftInstance {
         // Rebuilds mods
         try {
             const files = await readDirectory(resolvePath(this.path, "mods"));
-            const mods = files.map((file) => new MinecraftMod(this, resolvePath(this.path, "mods", file), null));
+            const mods = files.map((file) => new MinecraftMod(this, resolvePath(this.path, "mods", file), null, null));
             for(const mod of mods) {
                 try {
                     const rebuilt = await mod.rebuildMetadataFromSourceFile();
-                    pack.addons[await rebuilt.compileSha1FileHash()] = rebuilt.metadata!;
+                    pack.addons[rebuilt.hash!] = rebuilt.metadata!;
                     successes.push(rebuilt);
                 }
                 catch {
