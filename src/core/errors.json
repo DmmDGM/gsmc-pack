@@ -8,6 +8,7 @@
     "CURSE_FORGE:UPSTREAM_MISSING_MINECRAFT_VERSION_MAJOR": "The upstream with upstream major '$major' does not contain a valid Minecraft version on CurseForge.",
     "CURSE_FORGE:UPSTREAM_NO_SUCH_FILE_FINGERPRINT": "There is no such upstream with file fingerprint '$fingerprint' on CurseForge.",
     "CURSE_FORGE:UPSTREAM_NO_SUCH_UPSTREAM_MAJOR": "There is no such upstream with upstream major '$major' on CurseForge.",
+    "MOD:DOWNLOAD_MISSING_ADDON_METADATA": "The mod file '$path' is missing its metadata. Try rebuilding the metadata from its source file.",
     "MOD:REBUILD_BAD_FABRIC_MOD_JSON": "The mod file '$path' contains a broken 'fabric.mod.json' file.",
     "MOD:REBUILD_BAD_META_INF_MODS_TOML": "The mod file '$path' contains a broken 'META-INF/mods.toml' file.",
     "MOD:REBUILD_BAD_META_INF_NEO_FORGE_MODS_TOML": "The mod file '$path' contains a broken 'META-INF/neoforge.mods.toml' file.",

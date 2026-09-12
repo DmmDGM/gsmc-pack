@@ -51,6 +51,30 @@ export class MinecraftInstance {
     }
 
     /**
+     * Lists the addons in this instance according to its 'gsmc-pack.json' file.
+     * @returns An array of the addons in this instance.
+     */
+    async listGSMCPackAddons(): Promise<MinecraftAddon[]> {
+        // Reads 'gsmc-pack.json' file
+        const pack = await this.readGSMCPackFile();
+
+        // Lists addons
+        const addons: MinecraftAddon[] = [];
+        for(const hash in pack.addons) {
+            const metadata = pack.addons[hash];
+            switch(metadata.type) {
+                case MinecraftAddonType.MOD: {
+                    addons.push(new MinecraftMod(this, resolvePath(this.path, metadata.path), metadata));
+                    break;
+                }
+            }
+        }
+
+        // Returns addons
+        return addons;
+    }
+
+    /**
      * Reads data from the 'gsmc-pack.json' file in this instance.
      * @returns This instance's data from its 'gsmc-pack.json' file. 
      */
@@ -77,7 +101,7 @@ export class MinecraftInstance {
             for(const mod of mods) {
                 try {
                     const rebuilt = await mod.rebuildMetadataFromSourceFile();
-                    pack.addons[await rebuilt.compileSha1FileHash()] = rebuilt.metadata;
+                    pack.addons[await rebuilt.compileSha1FileHash()] = rebuilt.metadata!;
                     successes.push(rebuilt);
                 }
                 catch {

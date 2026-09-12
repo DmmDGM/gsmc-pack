@@ -9,6 +9,7 @@ import { MinecraftAddonMetadata } from "../core/metadata";
 import { MinecraftAddonType } from "../core/type";
 import { CurseForgeRegistry } from "../registry/curseforge";
 import { ModrinthRegistry } from "../registry/modrinth";
+import { MinecraftAddonRegistry } from "../core/registries";
 
 /** Represents a Minecraft mod. */
 export class MinecraftMod extends MinecraftAddon {
@@ -28,10 +29,46 @@ export class MinecraftMod extends MinecraftAddon {
     }
 
     /**
+     * Downloads this mod using its metadata.
+     * @returns An array of the file being downloaded to, the size of the download, and the asynchronous promise for the download.
+     */
+    async downloadFileFromMetadata(): Promise<[ Bun.BunFile, number, Promise<boolean> ]> {
+        // Ensures addon metadata
+        nodeAssert(this.metadata, format("MOD:DOWNLOAD_MISSING_ADDON_METADATA", { path: this.path }));
+
+        // Downloads mod file
+        const [ registry, ...parameters ] = this.metadata.upstream.split("::");
+        switch(registry as MinecraftAddonRegistry) {
+            case MinecraftAddonRegistry.CURSE_FORGE: {
+                const url = parameters[2];
+                const response = await fetch(url);
+                const file = Bun.file(this.path);
+                const size = parseInt(response.headers.get("content-length") ?? (0).toString());
+                const download = new Promise<boolean>(async (resolve) => {
+                    await file.write(response);
+                    resolve(true);
+                });
+                return [ file, size, download ];
+            }
+            case MinecraftAddonRegistry.MODRINTH: {
+                const url = parameters[2];
+                const response = await fetch(url);
+                const file = Bun.file(this.path);
+                const size = parseInt(response.headers.get("content-length") ?? (0).toString());
+                const download = new Promise<boolean>(async (resolve) => {
+                    await file.write(response);
+                    resolve(true);
+                });
+                return [ file, size, download ];
+            }
+        }
+    }
+
+    /**
      * Abandons existing metadata in 'gsmc-pack.json' and rebuilds this mod's metadata from its source file's 'fabric.mod.json' file instead.
      * @returns A new instance of the same mod with a rebuilt metadata.
      */
-    async rebuildMetadataFromFabricModJSON(): Promise<MinecraftMod & { metadata: MinecraftAddonMetadata; }> {
+    async rebuildMetadataFromFabricModJSON(): Promise<MinecraftMod> {
         // Ensures existence of 'fabric.mod.json'
         const entry = this.parseAdmArchiveFile().getEntry("fabric.mod.json");
         nodeAssert(entry !== null, format("MOD:REBUILD_MISSING_FABRIC_MOD_JSON", { path: this.path }));
@@ -68,14 +105,14 @@ export class MinecraftMod extends MinecraftAddon {
         });
 
         // Rebuilds instance from metadata
-        return new MinecraftMod(this.instance, this.path, metadata) as MinecraftMod & { metadata: MinecraftAddonMetadata; };
+        return new MinecraftMod(this.instance, this.path, metadata);
     }
 
     /**
      * Abandons existing metadata in 'gsmc-pack.json' and rebuilds this mod's metadata from its source file's 'META-INF/mods.toml' file instead.
      * @returns A new instance of the same mod with a rebuilt metadata.
      */
-    async rebuildMetadataFromMetaInfModsTOML(): Promise<MinecraftMod & { metadata: MinecraftAddonMetadata; }> {
+    async rebuildMetadataFromMetaInfModsTOML(): Promise<MinecraftMod> {
         // Ensures existence of 'META-INF/mods.toml'
         const entry = this.parseAdmArchiveFile().getEntry("META-INF/mods.toml");
         nodeAssert(entry !== null, format("MOD:REBUILD_MISSING_META_INF_MODS_TOML", { path: this.path }));
@@ -114,14 +151,14 @@ export class MinecraftMod extends MinecraftAddon {
         });
 
         // Rebuilds instance from metadata
-        return new MinecraftMod(this.instance, this.path, metadata) as MinecraftMod & { metadata: MinecraftAddonMetadata; };
+        return new MinecraftMod(this.instance, this.path, metadata);
     }
 
     /**
      * Abandons existing metadata in 'gsmc-pack.json' and rebuilds this mod's metadata from its source file's 'META-INF/neoforge.mods.toml' file instead.
      * @returns A new instance of the same mod with a rebuilt metadata.
      */
-    async rebuildMetadataFromMetaInfNeoForgeModsTOML(): Promise<MinecraftMod & { metadata: MinecraftAddonMetadata; }> {
+    async rebuildMetadataFromMetaInfNeoForgeModsTOML(): Promise<MinecraftMod> {
         // Ensures existence of 'META-INF/neoforge.mods.toml'
         const entry = this.parseAdmArchiveFile().getEntry("META-INF/neoforge.mods.toml");
         nodeAssert(entry !== null, format("MOD:REBUILD_MISSING_META_INF_NEO_FORGE_MODS_TOML", { path: this.path }));
@@ -160,14 +197,14 @@ export class MinecraftMod extends MinecraftAddon {
         });
 
         // Rebuilds instance from metadata
-        return new MinecraftMod(this.instance, this.path, metadata) as MinecraftMod & { metadata: MinecraftAddonMetadata; };
+        return new MinecraftMod(this.instance, this.path, metadata);
     }
 
     /**
      * Abandons existing metadata in 'gsmc-pack.json' and rebuilds this mod's metadata from its source file instead.
      * @returns A new instance of the same mod with a rebuilt metadata.
      */
-    async rebuildMetadataFromSourceFile(): Promise<MinecraftMod & { metadata: MinecraftAddonMetadata; }> {
+    async rebuildMetadataFromSourceFile(): Promise<MinecraftMod> {
         // Checks 'fabric.mod.json' file
         try {
             return await this.rebuildMetadataFromFabricModJSON();
