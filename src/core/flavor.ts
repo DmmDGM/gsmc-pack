@@ -9,6 +9,9 @@ export enum MinecraftAddonFlavor {
     /** Represents the [NeoForge](https://neoforged.net/) mod loader. */
     NEO_FORGE = "NEO_FORGE",
     
+    /** Represents ambiguous / universal Minecraft loader. */
+    UNKNOWN = "UNKNOWN",
+    
     /** Represents the default Minecraft loader. */
     VANILLA = "VANILLA"
 }

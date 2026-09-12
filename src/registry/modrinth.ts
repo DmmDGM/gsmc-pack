@@ -116,14 +116,16 @@ export class ModrinthRegistry {
         const loaders = {
             [ MinecraftAddonFlavor.FABRIC ]: "fabric",
             [ MinecraftAddonFlavor.FORGE ]: "forge",
-            [ MinecraftAddonFlavor.NEO_FORGE ]: "neoforge"
+            [ MinecraftAddonFlavor.NEO_FORGE ]: "neoforge",
+            [ MinecraftAddonFlavor.UNKNOWN ]: "unknown",
+            [ MinecraftAddonFlavor.VANILLA ]: "minecraft"
         };
         nodeAssert(flavor in loaders, format("MODRINTH:UPSTREAM_INVALID_ADDON_FLAVOR", { flavor, major }));
         const loader = loaders[flavor as keyof typeof loaders];
         
         // Creates request URL
         const url = ModrinthRegistry.createBaseURL(`/project/${major}/version`);
-        url.searchParams.append("loaders", JSON.stringify([ loader ]));
+        if(flavor !== MinecraftAddonFlavor.UNKNOWN) url.searchParams.append("loaders", JSON.stringify([ loader ]));
         url.searchParams.append("game_versions", JSON.stringify([ minecraft ]));
         url.searchParams.append("include_changelog", JSON.stringify(false));
         

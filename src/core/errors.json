@@ -6,7 +6,9 @@
     "CURSE_FORGE:UPSTREAM_MISSING_FILE_HASH_FILE_FINGERPRINT": "The upstream with file fingerprint '$fingerprint' does not contain a valid sha1 file hash on CurseForge.",
     "CURSE_FORGE:UPSTREAM_MISSING_FILE_HASH_MAJOR": "The upstream with upstream major '$major' does not contain a valid sha1 file hash on CurseForge.",
     "CURSE_FORGE:UPSTREAM_NO_SUCH_FILE_FINGERPRINT": "There is no such upstream with file fingerprint '$fingerprint' on CurseForge.",
-    "CURSE_FORGE:UPSTREAM_NO_SUCH_UPSTREAM_MAJOR": "There is no such upstream with upstream major '$major' on CurseForge.",
+    "CURSE_FORGE:UPSTREAM_NO_SUCH_UPSTREAM_MAJOR": "There is no such upstream with upstream major '$major' on CurseForge. Please also check your Minecraft version to see if your mod is compatible.",
+    "INSTANCE:GET_NO_SUCH_UPSTREAM_MINOR_CURSE_FORGE": "There is no such upstream with upstream major '$major' and upstream minor '$minor' on CurseForge. Please also check your Minecraft version to see if your mod is compatible.",
+    "INSTANCE:GET_NO_SUCH_UPSTREAM_MINOR_MODRINTH": "There is no such upstream with upstream major '$major' and upstream minor '$minor' on Modrinth. Please also check your Minecraft version to see if your mod is compatible.",
     "MOD:REBUILD_BAD_FABRIC_MOD_JSON": "The mod file '$path' contains a broken 'fabric.mod.json' file.",
     "MOD:REBUILD_BAD_META_INF_MODS_TOML": "The mod file '$path' contains a broken 'META-INF/mods.toml' file.",
     "MOD:REBUILD_BAD_META_INF_NEO_FORGE_MODS_TOML": "The mod file '$path' contains a broken 'META-INF/neoforge.mods.toml' file.",
@@ -22,5 +24,5 @@
     "MODRINTH:REQUEST_RATE_LIMIT_TIMEOUT": "The request '$url' to Modrinth is rate limited. Please wait 60 seconds before trying again.",
     "MODRINTH:UPSTREAM_INVALID_ADDON_FLAVOR": "The upstream major '$major' does not support the flavor '$flavor' on Modrinth.",
     "MODRINTH:UPSTREAM_NO_SUCH_FILE_HASH": "There is no such upstream with file hash '$hash' on Modrinth.",
-    "MODRINTH:UPSTREAM_NO_SUCH_UPSTREAM_MAJOR": "There is no such upstream with upstream major '$major' on Modrinth."
+    "MODRINTH:UPSTREAM_NO_SUCH_UPSTREAM_MAJOR": "There is no such upstream with upstream major '$major' on Modrinth. Please also check your Minecraft version to see if your mod is compatible."
 }

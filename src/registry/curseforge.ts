@@ -174,14 +174,16 @@ export class CurseForgeRegistry {
         const loaders = {
             [ MinecraftAddonFlavor.FABRIC ]: 4,
             [ MinecraftAddonFlavor.FORGE ]: 1,
-            [ MinecraftAddonFlavor.NEO_FORGE ]: 6
+            [ MinecraftAddonFlavor.NEO_FORGE ]: 6,
+            [ MinecraftAddonFlavor.UNKNOWN ]: 0,
+            [ MinecraftAddonFlavor.VANILLA ]: 0,
         };
         nodeAssert(flavor in loaders, format("CURSE_FORGE:UPSTREAM_INVALID_ADDON_FLAVOR", { flavor, major }));
         const loader = loaders[flavor as keyof typeof loaders];
         
         // Creates request URL
         const url = CurseForgeRegistry.createBaseURL(`/mods/${major}/files`);
-        url.searchParams.append("modLoaderType", JSON.stringify(loader));
+        if(flavor !== MinecraftAddonFlavor.UNKNOWN) url.searchParams.append("modLoaderType", JSON.stringify(loader));
         url.searchParams.append("gameVersion", minecraft);
         
         // Awaits response from CurseForge

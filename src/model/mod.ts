@@ -36,7 +36,7 @@ export class MinecraftMod extends MinecraftAddon {
      */
     async checkUpdatableUpstream(): Promise<MinecraftAddonUpstream | null> {
         // Reads 'gsmc-pack.json' file
-        const pack = await this.instance.readGSMCPackFile();
+        const pack = await this.instance.readPackFile();
 
         // Parses upstream from metadata
         const { major, registry } = this.parseUpstreamFromMetadata();
