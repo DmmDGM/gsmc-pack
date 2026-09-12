@@ -1,3 +1,4 @@
+// Imports
 import { MinecraftAddonRegistry } from "./registries";
 
 /** Represents a Minecraft addon upstream. */
@@ -13,9 +14,6 @@ export interface MinecraftAddonUpstream {
 
     /** The major registry pointer to this addon. */
     major: string | number;
-
-    /** The Minecraft version of this addon. */
-    minecrafts: string[];
     
     /** The minor registry pointer to this addon. */
     minor: string | number;

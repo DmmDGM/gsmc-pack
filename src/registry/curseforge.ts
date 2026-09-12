@@ -5,14 +5,14 @@ import { readCurseForgeAPIKey } from "../core/config";
 import { MinecraftAddonFlavor } from "../core/flavor";
 import { MinecraftAddonRegistry } from "../core/registries";
 import { MinecraftAddonUpstream } from "../core/upstream";
-import { version as release } from "../../package.json";
+import { version as semver } from "../../package.json";
 
 /** The CurseForge registry. */
 export class CurseForgeRegistry {
     /** The base CurseForge API url. */
     static readonly API = "https://api.curseforge.com/v1";
     /** The user agent for gsmc-pack. */
-    static readonly USER_AGENT = `DmmDGM/gsmc-pack/${release} (dmmdgm@dmmdgm.dev)`;
+    static readonly USER_AGENT = `DmmDGM/gsmc-pack/${semver} (dmmdgm@dmmdgm.dev)`;
     /** The default number of retries available in case of a rate limit violation. */
     static readonly DEFAULT_RETRIES = 3;
     /** The default time in milliseconds to wait in case of a rate limit violation. */
@@ -132,7 +132,6 @@ export class CurseForgeRegistry {
                         downloadUrl: string;
                         fileDate: string;
                         fileName: string;
-                        gameVersions: string[];
                         hashes: {
                             algo: number;
                             value: string;
@@ -157,7 +156,6 @@ export class CurseForgeRegistry {
             file: match.file.fileName,
             hash: hash.value,
             major: match.id.toString(),
-            minecrafts: match.file.gameVersions,
             minor: match.file.id.toString(),
             registry: MinecraftAddonRegistry.CURSE_FORGE,
             url: match.file.downloadUrl ?? `https://www.curseforge.com/api/v1/mods/${match.id}/files/${match.file.id}/download`
@@ -196,7 +194,6 @@ export class CurseForgeRegistry {
                 downloadUrl: string;
                 fileDate: string;
                 fileName: string;
-                gameVersions: string[];
                 hashes: {
                     algo: number;
                     value: string;
@@ -216,7 +213,6 @@ export class CurseForgeRegistry {
                 file: file.fileName,
                 hash: hash.value,
                 major: file.modId.toString(),
-                minecrafts: file.gameVersions,
                 minor: file.id.toString(),
                 registry: MinecraftAddonRegistry.CURSE_FORGE,
                 url: file.downloadUrl ?? `https://www.curseforge.com/api/v1/mods/${file.modId}/files/${file.id}/download`,

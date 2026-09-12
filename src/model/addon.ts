@@ -56,24 +56,19 @@ export abstract class MinecraftAddon {
     }
 
     /**
-     * Downloads this addon using its metadata.
-     * @returns An array of the file being downloaded to, the size of the download, and the asynchronous promise for the download.
+     * Creates an AdmZip instance of this addon.
+     * @returns The AdmZip instance of this addon.
      */
-    abstract downloadFileFromMetadata(): Promise<[ Bun.BunFile, number, Promise<boolean> ]>;
+    parseAdmArchiveFile(): AdmZip {
+        // Creates AdmZip archive
+        return new AdmZip(this.path);
+    }
 
     /**
      * Parses the upstream of this addon using its metadata.
      * @returns The upstream of this addon.
      */
     abstract parseUpstreamFromMetadata(): MinecraftAddonUpstream;
-
-    /**
-     * Creates an AdmZip instance of this addon.
-     * @returns The AdmZip instance of this addon.
-     */
-    parseAdmArchiveFile(): AdmZip {
-        return new AdmZip(this.path);
-    }
 
     /**
      * Abandons existing metadata in 'gsmc-pack.json' and rebuilds this addon's metadata from its source file instead.

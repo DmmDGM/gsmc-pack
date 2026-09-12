@@ -4,14 +4,14 @@ import { format } from "../core/errors";
 import { MinecraftAddonFlavor } from "../core/flavor";
 import { MinecraftAddonRegistry } from "../core/registries";
 import { MinecraftAddonUpstream } from "../core/upstream";
-import { version as release } from "../../package.json";
+import { version as semver } from "../../package.json";
 
 /** The Modrinth registry. */
 export class ModrinthRegistry {
     /** The base Modrinth API url. */
     static readonly API = "https://api.modrinth.com/v2";
     /** The user agent for gsmc-pack. */
-    static readonly USER_AGENT = `DmmDGM/gsmc-pack/${release} (dmmdgm@dmmdgm.dev)`;
+    static readonly USER_AGENT = `DmmDGM/gsmc-pack/${semver} (dmmdgm@dmmdgm.dev)`;
     /** The default number of retries available in case of a rate limit violation. */
     static readonly DEFAULT_RETRIES = 3;
     /** The default time in milliseconds to wait in case of a rate limit violation. */
@@ -85,7 +85,6 @@ export class ModrinthRegistry {
                 primary: boolean;
                 url: string;
             }[];
-            game_versions: string[];
             project_id: string;
             version_number: string;
         };
@@ -99,7 +98,6 @@ export class ModrinthRegistry {
             file: file.filename,
             hash: file.hashes.sha1,
             major: project.project_id,
-            minecrafts: project.game_versions,
             minor: project.version_number,
             registry: MinecraftAddonRegistry.MODRINTH,
             url: file.url
@@ -144,7 +142,6 @@ export class ModrinthRegistry {
                 primary: boolean;
                 url: string;
             }[];
-            game_versions: string[];
             project_id: string;
             version_number: string;
         }[];
@@ -157,7 +154,6 @@ export class ModrinthRegistry {
                 file: file.filename,
                 hash: file.hashes.sha1,
                 major: version.project_id,
-                minecrafts: version.game_versions,
                 minor: version.version_number,
                 registry: MinecraftAddonRegistry.MODRINTH,
                 url: file.url,

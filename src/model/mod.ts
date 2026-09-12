@@ -2,8 +2,8 @@
 import type { MinecraftInstance } from "./instance";
 import nodeAssert from "node:assert";
 import { basename as resolveBasename, relative as relativePath } from "node:path";
-import { format } from "../core/errors";
 import { MinecraftAddon } from "./addon";
+import { format } from "../core/errors";
 import { MinecraftAddonFlavor } from "../core/flavor";
 import { MinecraftAddonMetadata } from "../core/metadata";
 import { MinecraftAddonRegistry } from "../core/registries";
@@ -39,53 +39,19 @@ export class MinecraftMod extends MinecraftAddon {
         const pack = await this.instance.readGSMCPackFile();
 
         // Parses upstream from metadata
-        const { major, minecrafts, registry } = this.parseUpstreamFromMetadata();
+        const { major, registry } = this.parseUpstreamFromMetadata();
         
-        // Ignores Minecraft override
-        if(!minecrafts.includes(pack.minecraft)) return null;
-
         // Checks upstream
         switch(registry) {
             case MinecraftAddonRegistry.CURSE_FORGE: {
-                const upstreams = await CurseForgeRegistry.fetchMinorUpstreamsFromMajor(major.toString(), this.metadata!.flavor, pack.minecraft);
+                const upstreams = await CurseForgeRegistry.fetchMinorUpstreamsFromMajor(major.toString(), pack.environment[MinecraftAddonType.MOD], pack.minecraft);
                 const upstream = upstreams.sort((a, b) => b.date - a.date)[0];
                 return upstream.hash === this.hash ? null : upstream;
             }
             case MinecraftAddonRegistry.MODRINTH: {
-                const upstreams = await ModrinthRegistry.fetchMinorUpstreamsFromMajor(major.toString(), this.metadata!.flavor, pack.minecraft);
+                const upstreams = await ModrinthRegistry.fetchMinorUpstreamsFromMajor(major.toString(), pack.environment[MinecraftAddonType.MOD], pack.minecraft);
                 const upstream = upstreams.sort((a, b) => b.date - a.date)[0];
                 return upstream.hash === this.hash ? null : upstream;
-            }
-        }
-    }
-
-    /**
-     * Downloads this mod using its metadata.
-     * @returns An array of the file being downloaded to, the size of the download, and the asynchronous promise for the download.
-     */
-    async downloadFileFromMetadata(): Promise<[ Bun.BunFile, number, Promise<boolean> ]> {
-        // Downloads mod file
-        const { registry, url } = this.parseUpstreamFromMetadata();
-        switch(registry) {
-            case MinecraftAddonRegistry.CURSE_FORGE: {
-                const response = await fetch(url);
-                const file = Bun.file(this.path);
-                const size = parseInt(response.headers.get("content-length") ?? (0).toString());
-                const download = new Promise<boolean>(async (resolve) => {
-                    await file.write(response);
-                    resolve(true);
-                });
-                return [ file, size, download ];
-            }
-            case MinecraftAddonRegistry.MODRINTH: {
-                const response = await fetch(url);
-                const file = Bun.file(this.path);
-                const size = parseInt(response.headers.get("content-length") ?? (0).toString());
-                const download = new Promise<boolean>(async (resolve) => {
-                    await file.write(response);
-                    resolve(true);
-                });
-                return [ file, size, download ];
             }
         }
     }
@@ -105,15 +71,13 @@ export class MinecraftMod extends MinecraftAddon {
             case MinecraftAddonRegistry.CURSE_FORGE:
             case MinecraftAddonRegistry.MODRINTH: {
                 const [ major, minor ] = parameters[0].split("@");
-                const minecrafts = parameters[1].split(";");
-                const url = parameters[2];
-                const date = parseInt(parameters[3]);
+                const url = parameters[1];
+                const date = parseInt(parameters[2]);
                 return {
                     date: date,
                     file: resolveBasename(this.path),
                     hash: this.hash,
                     major: major,
-                    minecrafts: minecrafts,
                     minor: minor,
                     registry: registry,
                     url: url
@@ -294,7 +258,7 @@ export class MinecraftMod extends MinecraftAddon {
         try {
             const hash = await this.compileSha1FileHash();
             const upstream = await ModrinthRegistry.fetchUpstreamFromFileHash(hash);
-            return `${upstream.registry}::${upstream.major}@${upstream.minor}::${upstream.minecrafts.join(";")}::${upstream.url}::${upstream.date}`;
+            return `${upstream.registry}::${upstream.major}@${upstream.minor}::${upstream.url}::${upstream.date}`;
         }
         catch {}
 
@@ -302,7 +266,7 @@ export class MinecraftMod extends MinecraftAddon {
         try {
             const fingerprint = this.compileCurseForgeFileFingerprint();
             const upstream = await CurseForgeRegistry.fetchUpstreamFromFileFingerprint(fingerprint);
-            return `${upstream.registry}::${upstream.major}@${upstream.minor}::${upstream.minecrafts.join(";")}::${upstream.url}::${upstream.date}`;
+            return `${upstream.registry}::${upstream.major}@${upstream.minor}::${upstream.url}::${upstream.date}`;
         }
         catch {}
 

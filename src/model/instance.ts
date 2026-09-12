@@ -1,5 +1,7 @@
 // Imports
-import { readdir as readDirectory } from "node:fs/promises";
+import nodeAssert from "node:assert";
+import { mkdtemp as makeTemporaryDirectory, readdir as readDirectory, rename as renameFile } from "node:fs/promises";
+import { tmpdir as getTemporaryDirectory } from "node:os";
 import { resolve as resolvePath } from "node:path";
 import { MinecraftAddon } from "./addon";
 import { MinecraftMod } from "./mod";
@@ -7,6 +9,8 @@ import { MinecraftAddonFlavor } from "../core/flavor";
 import { GSMCPack } from "../core/gsmcpack";
 import { MinecraftAddonType } from "../core/type";
 import { MinecraftAddonUpstream } from "../core/upstream";
+import { sniffMinecraftAddonType } from "../core/sniff";
+import { format } from "../core/errors";
 
 /** Represents a Minecraft instance. */
 export class MinecraftInstance {
@@ -22,9 +26,31 @@ export class MinecraftInstance {
         this.path = path;
     }
 
-    async addGSMCPackAddon(upstream: MinecraftAddonUpstream): Promise<void> {};
-    async removeGSMCPackAddon(hash: string): Promise<void> {};
-    async updateGSMCPackAddon(hash: string, upstream: MinecraftAddonUpstream): Promise<void> {};
+    async addGSMCPackAddon(upstream: MinecraftAddonUpstream): Promise<MinecraftAddon> {
+        const pack = await this.readGSMCPackFile();
+        const temporaryDirectory = await makeTemporaryDirectory(resolvePath(getTemporaryDirectory(), "gsmc-pack-"));
+        const temporaryPath = resolvePath(temporaryDirectory, upstream.file);
+        await Bun.write(temporaryPath, await fetch(upstream.url));
+        
+        switch(await sniffMinecraftAddonType(temporaryPath)) {
+            case MinecraftAddonType.MOD: {
+                const permanentPath = resolvePath(this.path, "mods", upstream.file);
+                await renameFile(temporaryPath, permanentPath);
+                const mod = new MinecraftMod(this, permanentPath, null, null);
+                const rebuilt = await mod.rebuildMetadataFromSourceFile();
+                pack.addons[rebuilt.hash!] = rebuilt.metadata!;
+                await this.writeGSMCPackFile(pack);
+                return rebuilt;
+            }
+            case MinecraftAddonType.DATA_PACK:
+            case MinecraftAddonType.PLUGIN:
+            case MinecraftAddonType.RESOURCE_PACK:
+            case MinecraftAddonType.SHADER_PACK:
+            case MinecraftAddonType.TEXTURE_PACK: {
+                throw new Error("haiii not implemented yet kthxbai");
+            }
+        }        
+    }
 
     /**
      * Creates a new 'gsmc-pack.json' file in this instance.
@@ -53,6 +79,10 @@ export class MinecraftInstance {
 
         // Writes 'gsmc-pack.json' file
         return await this.writeGSMCPackFile(pack);
+    }
+
+    async installGSMCPackAddons(): Promise<[ MinecraftAddon[], MinecraftAddon[] ]> {
+
     }
 
     /**
@@ -122,6 +152,19 @@ export class MinecraftInstance {
 
         // Returns results
         return [ successes, failures ];
+    }
+
+    async removeGSMCPackAddon(hash: string): Promise<void> {}
+
+    async replaceGSMCPackAddon(hash: string, upstream: MinecraftAddonUpstream): Promise<MinecraftAddon> {
+        await this.removeGSMCPackAddon(hash);
+        return await this.addGSMCPackAddon(upstream);
+    }
+
+    
+
+    async upgradeGSMCPackAddons(): Promise<[ MinecraftAddon[], MinecraftAddon[], MinecraftAddon[] ]> {
+
     }
 
     /**
