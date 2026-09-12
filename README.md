@@ -25,3 +25,15 @@ Features
 - [x] `upgrade` # Upgrades all addons to the latest version of the same Minecraft version.
     - [ ] `upgrade <hash/id>[@minor][/type]` # Upgrade to specific minor release.
 - [ ] `migrate` # Migrate all addons to a different Minecraft version or mod loader etc.
+
+## How to Use?
+
+I'm still working on the CLI. Although you should be able to clone it and play around with the code for now.
+The basic functionality works, I just need to work on better CLI integration so `gsmc-pack` can both work as a library and as a cli tool.
+
+Essentially, the goal here is kinda to make gsmc-pack a package manager for modrinth/curse-forge mods. :3
+
+## Updates
+
+I'm busy with kolleg, so I'll most likely update the mod during weekends.
+Any feedback is appreciated. <3
