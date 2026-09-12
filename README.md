@@ -12,23 +12,16 @@ Work in progress...
 
 ## Roadmap
 
-basics
-- [ ] ability to detect mods and install stuff online
+Features
 
-cmdline
-- [ ] `gsmc-pack init` # reads current .minecraft directory and generates / refreshes gsmc-pack.json
-- [ ] `gsmc-pack add <...id[@version]>` # installs mod / resource pack / shader pack
-- [ ] `gsmc-pack remove <...id>` # uninstalls mod / resource pack / shader pack
-- [ ] `gsmc-pack install` # reads gsmc-pack.json and install everything as specified, good for sharing modpacks via gsmc-pack.json
-- [ ] `gsmc-pack update [...id[@version]]` # updates mod / resource pack / shader pack without changing minecraft version
-- [ ] `gsmc-pack migrate <minecraft-version> [...id[@version]]` # updates mod / resource pack / shader pack to the corresponding minecraft version
-- [ ] `gsmc-pack upgrade` # upgrades gsmc-pack from github ig? prob just gonna be a `git pull` if im too lazy to make an installer for it
-- [ ] `gsmc-pack scan` # check for updatable packages
-- [ ] `gsmc-pack list` # list all mod / resource pack / shader packs installed - this only checks gsmc-pack.json, will need `gsmc-pack scan` to update
-- [ ] if time allows, maybe i will do a direct url install, probably `gsmc-pack link <url>`, which means its not updatable or migratable, but at least it will appear on `gsmc-pack.json` and stuff idk
-
-extra features
-- [ ] modrinth registry support
-- [ ] forge registry support
-- [ ] api keys storage (probably just gonna be .gsmc-pack/modrinth.key and .gsmc-pack/forge.key)
-- [ ] installer? (idk yet, for now ill just focus on manual build, someone smarter than me can figure out the installer stuff)
+- [x] `init` # Initialize blank 'gsmc-pack.json' file.
+- [x] `add [registry:]<major>[@minor]` # Add addon to `gsmc-pack.json` file.
+    - [ ] `add [registry:]<major>[@minor][/type]` # Use preset lookup instead of match first.
+- [x] `remove [hash]` # Remove addon from `gsmc-pack.json` file.
+    - [ ] `remove [id]` # Remove addon from `gsmc-pack.json` file by ID.
+- [x] `list` # Lists addons in `gsmc-pack.json` file.
+- [x] `rebuild` # Rebuilds `gsmc-pack.json` file from instance instead. This is for helping new users setup gsmc-pack from existing builds.
+- [x] `install` # Installs addons according to the `gsmc-pack.json` file.
+- [x] `upgrade` # Upgrades all addons to the latest version of the same Minecraft version.
+    - [ ] `upgrade <hash/id>[@minor][/type]` # Upgrade to specific minor release.
+- [ ] `migrate` # Migrate all addons to a different Minecraft version or mod loader etc.
