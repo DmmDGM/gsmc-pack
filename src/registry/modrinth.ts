@@ -1,14 +1,17 @@
 // Imports
 import nodeAssert from "node:assert";
-import { format, MinecraftModFlavor, MinecraftUpstream } from "../core/common";
-import { version } from "../../package.json";
+import { format } from "../core/errors";
+import { MinecraftAddonFlavor } from "../core/flavor";
+import { MinecraftAddonRegistry } from "../core/registries";
+import { MinecraftAddonUpstream } from "../core/upstream";
+import { version as release } from "../../package.json";
 
 /** The Modrinth registry. */
 export class ModrinthRegistry {
     /** The base Modrinth API url. */
-    static readonly API = "https://api.modrinth.com/v2"
+    static readonly API = "https://api.modrinth.com/v2";
     /** The user agent for gsmc-pack. */
-    static readonly USER_AGENT = `DmmDGM/gsmc-pack/${version} (dmmdgm@dmmdgm.dev)`;
+    static readonly USER_AGENT = `DmmDGM/gsmc-pack/${release} (dmmdgm@dmmdgm.dev)`;
     /** The default number of retries available in case of a rate limit violation. */
     static readonly DEFAULT_RETRIES = 3;
     /** The default time in milliseconds to wait in case of a rate limit violation. */
@@ -33,7 +36,7 @@ export class ModrinthRegistry {
      */
     static async createGetRequest(url: URL, retry: number = ModrinthRegistry.DEFAULT_RETRIES, timeout: number = ModrinthRegistry.DEFAULT_TIMEOUT): Promise<Response> {
         // Ensures Modrinth API origin
-        nodeAssert(url.href.startsWith(ModrinthRegistry.API), format("MODRINTH:REQUEST_EXTERNAL_URL", { url: url.toString() }));
+        nodeAssert(url.href.startsWith(ModrinthRegistry.API), format("MODRINTH:REQUEST_NO_EXTERNAL_URL", { url: url.toString() }));
         
         // Creates fetch headers
         const headers = new Headers();
@@ -55,21 +58,23 @@ export class ModrinthRegistry {
         }
 
         // Throws error
-        nodeAssert(false, format("MODRINTH:RESPONSE_RATE_LIMIT_TIMEOUT", { url: url.toString() }));
+        nodeAssert(false, format("MODRINTH:REQUEST_RATE_LIMIT_TIMEOUT", { url: url.toString() }));
     }
 
     /**
-     * Fetches a mod's Modrinth upstream from its file hash.
-     * @param hash The file hash of the mod.
-     * @returns The Modrinth upstream of this mod.
+     * Fetches the Modrinth upstream from an addon's file hash.
+     * @param hash The file hash of the addon.
+     * @returns The Modrinth upstream of the addon.
      */
-    static async fetchUpstreamFromFileHash(hash: string): Promise<MinecraftUpstream> {
-        // Retrieves response from Modrinth
+    static async fetchUpstreamFromFileHash(hash: string): Promise<MinecraftAddonUpstream> {
+        // Creates request URL
         const url = ModrinthRegistry.createBaseURL(`/version_file/${hash}`);
-        const response = await ModrinthRegistry.createGetRequest(url);
-        nodeAssert(response.ok, format("MODRINTH:NO_SUCH_FILE_HASH", { hash }));
         
-        // Parses relevant fields from response
+        // Awaits response from Modrinth
+        const response = await ModrinthRegistry.createGetRequest(url);
+        nodeAssert(response.ok, format("MODRINTH:UPSTREAM_NO_SUCH_FILE_HASH", { hash }));
+        
+        // Parses project from response
         const project = await response.json() as {
             date_published: string;
             files: {
@@ -80,44 +85,59 @@ export class ModrinthRegistry {
                 primary: boolean;
                 url: string;
             }[];
+            game_versions: string[];
             project_id: string;
             version_number: string;
         };
+
+        // Parses file from project
         const file = project.files.find((file) => file.primary) || project.files[0];
+
+        // Parses Minecraft from project
+        const minecraft = project.game_versions.join(";");
+        nodeAssert(minecraft.length, format("MODRINTH:UPSTREAM_MISSING_MINECRAFT_VERSION_FILE_HASH", { hash }));
+
+        // Returns upstream
         return {
             date: +new Date(project.date_published),
             file: file.filename,
             hash: file.hashes.sha1,
-            id: project.project_id,
-            url: file.url,
-            version: project.version_number
+            major: project.project_id,
+            minecraft: minecraft,
+            minor: project.version_number,
+            registry: MinecraftAddonRegistry.MODRINTH,
+            url: file.url
         };
     }
 
     /**
-     * Fetches a mod's Modrinth upstreams from its project ID.
-     * @param id The project ID of the mod.
-     * @param flavor The flavor of the mod.
-     * @param version The version of the Minecraft instance.
-     * @returns The Modrinth upstreams of this mod.
+     * Fetches the Modrinth minor upstreams from an addon's major.
+     * @param major The major of the addon.
+     * @param flavor The flavor of the addon.
+     * @param minecraft The Minecraft version of the addon.
+     * @returns The Modrinth upstreams of the addon.
      */
-    static async fetchUpstreamsFromProjectID(id: string, flavor: MinecraftModFlavor, version: string): Promise<MinecraftUpstream[]> {
-        // Translates mod flavor to Modrinth-parsable loader
-        const loader = {
-            [ MinecraftModFlavor.FABRIC ]: "fabric",
-            [ MinecraftModFlavor.FORGE ]: "forge",
-            [ MinecraftModFlavor.NEO_FORGE ]: "neoforge"
-        }[flavor];
+    static async fetchMinorUpstreamsFromMajor(major: string, flavor: MinecraftAddonFlavor, minecraft: string): Promise<MinecraftAddonUpstream[]> {
+        // Translates addon flavor to Modrinth-parsable loader
+        const loaders = {
+            [ MinecraftAddonFlavor.FABRIC ]: "fabric",
+            [ MinecraftAddonFlavor.FORGE ]: "forge",
+            [ MinecraftAddonFlavor.NEO_FORGE ]: "neoforge"
+        };
+        nodeAssert(flavor in loaders, format("MODRINTH:UPSTREAM_INVALID_ADDON_FLAVOR", { flavor, major }));
+        const loader = loaders[flavor as keyof typeof loaders];
         
-        // Retrieves response from Modrinth
-        const url = ModrinthRegistry.createBaseURL(`/project/${id}/version`);
+        // Creates request URL
+        const url = ModrinthRegistry.createBaseURL(`/project/${major}/version`);
         url.searchParams.append("loaders", JSON.stringify([ loader ]));
-        url.searchParams.append("game_versions", JSON.stringify([ version ]));
+        url.searchParams.append("game_versions", JSON.stringify([ minecraft ]));
         url.searchParams.append("include_changelog", JSON.stringify(false));
+        
+        // Awaits response from Modrinth
         const response = await ModrinthRegistry.createGetRequest(url);
-        nodeAssert(response.ok, format("MODRINTH:NO_SUCH_PROJECT_ID", { id }));
+        nodeAssert(response.ok, format("MODRINTH:UPSTREAM_NO_SUCH_UPSTREAM_MAJOR", { major }));
 
-        // Parses relevant fields from response
+        // Parses versions from response
         const versions = await response.json() as {
             date_published: string;
             files: {
@@ -128,18 +148,25 @@ export class ModrinthRegistry {
                 primary: boolean;
                 url: string;
             }[];
+            game_versions: string[];
             project_id: string;
             version_number: string;
         }[];
+
+        // Returns upstreams
         return versions.map((version) => {
             const file = version.files.find((file) => file.primary) || version.files[0];
+            const minecraft = version.game_versions.join(";");
+            nodeAssert(minecraft.length, format("MODRINTH:UPSTREAM_MISSING_MINECRAFT_VERSION_MAJOR", { major }));
             return {
                 date: +new Date(version.date_published),
                 file: file.filename,
                 hash: file.hashes.sha1,
-                id: version.project_id,
+                major: version.project_id,
+                minecraft: minecraft,
+                minor: version.version_number,
+                registry: MinecraftAddonRegistry.MODRINTH,
                 url: file.url,
-                version: version.version_number
             };
         });
     }

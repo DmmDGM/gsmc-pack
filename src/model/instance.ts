@@ -1,107 +1,113 @@
 // Imports
-import type { GSMCPackJSON } from "../core/common";
-import nodeFs from "node:fs/promises";
-import nodePath from "node:path";
-import { AbstractMinecraftMod, FlavoredMinecraftMod } from "./mod";
+import { readdir as readDirectory } from "node:fs/promises";
+import { resolve as resolvePath } from "node:path";
+import { MinecraftAddon } from "./addon";
+import { MinecraftMod } from "./mod";
+import { MinecraftAddonFlavor } from "../core/flavor";
+import { GSMCPack } from "../core/gsmcpack";
+import { MinecraftAddonType } from "../core/type";
 
-/** A representation of a Minecraft instance. */
+/** Represents a Minecraft instance. */
 export class MinecraftInstance {
     /** The path to this instance. */
     readonly path: string;
 
     /**
-     * Creates a new Minecraft instance representation.
+     * Creates a new Minecraft instance instance.
      * @param path The path to this instance.
      */
     constructor(path: string) {    
-        // Initializes class
+        // Initializes instance
         this.path = path;
     }
 
     /**
      * Creates a new 'gsmc-pack.json' file in this instance.
-     * @param version The Minecraft version of this instance.
+     * @returns Whether the write is successful.
      */
-    async initPackFile(version: string): Promise<void> {
+    async initGSMCPackFile(): Promise<boolean> {
         // Creates blank 'gsmc-pack.json' file
-        const pack: GSMCPackJSON = {
+        const pack: GSMCPack = {
             addons: {},
-            description: "",
+            authors: [],
+            description: "A list of my Minecraft addons for my world!",
             environment: {
-                mod: null,
-                plugin: null,
-                shader: null,
-                version
+                [ MinecraftAddonType.DATA_PACK ]: MinecraftAddonFlavor.VANILLA,
+                [ MinecraftAddonType.MOD ]: MinecraftAddonFlavor.VANILLA,
+                [ MinecraftAddonType.PLUGIN ]: MinecraftAddonFlavor.VANILLA,
+                [ MinecraftAddonType.RESOURCE_PACK ]: MinecraftAddonFlavor.VANILLA,
+                [ MinecraftAddonType.SHADER_PACK ]: MinecraftAddonFlavor.VANILLA,
+                [ MinecraftAddonType.TEXTURE_PACK ]: MinecraftAddonFlavor.VANILLA,
             },
-            name: "",
-            schema: 1
+            minecraft: "26.2",
+            name: "My GSMC Pack",
+            schema: 1,
+            server: false,
+            version: "1.0.0"
         };
-        await this.writePackFile(pack);
+
+        // Writes 'gsmc-pack.json' file
+        return await this.writeGSMCPackFile(pack);
     }
 
     /**
-     * Reads the 'mods' directory of this instance.
-     * @returns An array of this instance's mods.
-     */
-    async readModsDirectory(): Promise<AbstractMinecraftMod[]> {
-        try {
-            // Reads 'mods' directory if exists
-            const mods = await nodeFs.readdir(nodePath.join(this.path, "mods"));
-            return mods.map((mod) => new AbstractMinecraftMod(nodePath.join(this.path, "mods", mod)));
-        }
-        catch {
-            // Returns empty array as fallback
-            return [];
-        }
-    }
-
-    /**
-     * Reads the instance data from the 'gsmc-pack.json' file in this instance.
+     * Reads data from the 'gsmc-pack.json' file in this instance.
      * @returns This instance's data from its 'gsmc-pack.json' file. 
      */
-    async readPackFile(): Promise<GSMCPackJSON> {
+    async readGSMCPackFile(): Promise<GSMCPack> {
         // Reads 'gsmc-pack.json' file
-        return Bun.file(nodePath.join(this.path, "gsmc-pack.json")).json();
+        return Bun.file(resolvePath(this.path, "gsmc-pack.json")).json();
     }
 
     /**
-     * Resynchronizes the 'addons' field in this instance's 'gsmc-pack.json' file.
-     * @returns An array of successful resyncs and an array of failed resyncs.
+     * Rebuilds the 'addons' field of the 'gsmc-pack.json' file in this instance.
+     * @returns An array of successful rebuilds and an array of failed rebuilds.
      */
-    async resyncAddons(): Promise<[ FlavoredMinecraftMod[], AbstractMinecraftMod[] ]> {
-        // Resets 'addons' field in 'gsmc-pack.json' file
-        const pack = await this.readPackFile();
+    async rebuildGSMCPackAddons(): Promise<[ MinecraftAddon[], MinecraftAddon[] ]> {
+        // Reads 'gsmc-pack.json' file
+        const pack = await this.readGSMCPackFile();
+        const successes: MinecraftAddon[] = [];
+        const failures: MinecraftAddon[] = [];
         pack.addons = {};
 
-        // Parses mods
-        const mods = await this.readModsDirectory();
-        const successes: FlavoredMinecraftMod[] = [];
-        const failures: AbstractMinecraftMod[] = [];
-        for(const mod of mods) {
-            try {
-                const flavored = await mod.resolveAsFlavoredMod();
-                pack.addons[flavored.hash] = flavored.metadata;
-                successes.push(flavored);
-            }
-            catch {
-                failures.push(mod);
-                continue;
+        // Rebuilds mods
+        try {
+            const files = await readDirectory(resolvePath(this.path, "mods"));
+            const mods = files.map((file) => new MinecraftMod(this, resolvePath(this.path, "mods", file), null));
+            for(const mod of mods) {
+                try {
+                    const rebuilt = await mod.rebuildMetadataFromSourceFile();
+                    pack.addons[await rebuilt.compileSha1FileHash()] = rebuilt.metadata;
+                    successes.push(rebuilt);
+                }
+                catch {
+                    failures.push(mod);
+                    continue;
+                }
             }
         }
+        catch {}
         
-        // Writes 'addons' field to 'gsmc-pack.json' file
-        await this.writePackFile(pack);
+        // Writes 'gsmc-pack.json' file
+        await this.writeGSMCPackFile(pack);
 
         // Returns results
         return [ successes, failures ];
     }
 
     /**
-     * Writes the instance data to the 'gsmc-pack.json' file in this instance.
-     * @param pack The instance data.
+     * Writes data to the 'gsmc-pack.json' file in this instance.
+     * @param pack The data for the 'gsmc-pack.json' file.
+     * @returns Whether the write is successful.
      */
-    async writePackFile(pack: GSMCPackJSON): Promise<void> {
+    async writeGSMCPackFile(pack: GSMCPack): Promise<boolean> {
         // Writes 'gsmc-pack.json' file
-        await Bun.file(nodePath.join(this.path, "gsmc-pack.json")).write(JSON.stringify(pack, null, 4));
+        try {
+            await Bun.file(resolvePath(this.path, "gsmc-pack.json")).write(JSON.stringify(pack, null, 4));
+            return true;
+        }
+        catch {
+            return false;
+        }
     }
 }

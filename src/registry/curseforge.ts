@@ -1,14 +1,18 @@
 // Imports
 import nodeAssert from "node:assert";
-import { format, MinecraftUpstream, readCurseForgeAPIKey } from "../core/common";
-import { version } from "../../package.json";
+import { format } from "../core/errors";
+import { readCurseForgeAPIKey } from "../core/config";
+import { MinecraftAddonFlavor } from "../core/flavor";
+import { MinecraftAddonRegistry } from "../core/registries";
+import { MinecraftAddonUpstream } from "../core/upstream";
+import { version as release } from "../../package.json";
 
 /** The CurseForge registry. */
 export class CurseForgeRegistry {
     /** The base CurseForge API url. */
     static readonly API = "https://api.curseforge.com/v1";
     /** The user agent for gsmc-pack. */
-    static readonly USER_AGENT = `DmmDGM/gsmc-pack/${version} (dmmdgm@dmmdgm.dev)`;
+    static readonly USER_AGENT = `DmmDGM/gsmc-pack/${release} (dmmdgm@dmmdgm.dev)`;
     /** The default number of retries available in case of a rate limit violation. */
     static readonly DEFAULT_RETRIES = 3;
     /** The default time in milliseconds to wait in case of a rate limit violation. */
@@ -33,8 +37,8 @@ export class CurseForgeRegistry {
      */
     static async createGetRequest(url: URL, retry: number = CurseForgeRegistry.DEFAULT_RETRIES, timeout: number = CurseForgeRegistry.DEFAULT_TIMEOUT): Promise<Response> {
         // Ensures CurseForge API origin
-        nodeAssert(url.href.startsWith(CurseForgeRegistry.API), format("CURSE_FORGE:REQUEST_EXTERNAL_URL", { url: url.toString() }));
-
+        nodeAssert(url.href.startsWith(CurseForgeRegistry.API), format("CURSE_FORGE:REQUEST_NO_EXTERNAL_URL", { url: url.toString() }));
+        
         // Creates fetch headers
         const headers = new Headers();
         headers.append("user-agent", CurseForgeRegistry.USER_AGENT);
@@ -57,20 +61,21 @@ export class CurseForgeRegistry {
         }
 
         // Throws error
-        nodeAssert(false, format("CURSE_FORGE:RESPONSE_RATE_LIMIT_TIMEOUT", { url: url.toString() }));
+        nodeAssert(false, format("CURSE_FORGE:REQUEST_RATE_LIMIT_TIMEOUT", { url: url.toString() }));
     }
 
     /**
      * Creates a POST request to CurseForge API from a given URL.
      * @param url The CurseForge API url.
+     * @param payload The payload of the request.
      * @param retry The number of retries available in case of a rate limit violation.
      * @param timeout The time in milliseconds to wait in case of a rate limit violation.
      * @returns The response from CurseForge API.
      */
     static async createPostRequest(url: URL, payload: unknown, retry: number = CurseForgeRegistry.DEFAULT_RETRIES, timeout: number = CurseForgeRegistry.DEFAULT_TIMEOUT): Promise<Response> {
         // Ensures CurseForge API origin
-        nodeAssert(url.href.startsWith(CurseForgeRegistry.API), format("CURSE_FORGE:REQUEST_EXTERNAL_URL", { url: url.toString() }));
-
+        nodeAssert(url.href.startsWith(CurseForgeRegistry.API), format("CURSE_FORGE:REQUEST_NO_EXTERNAL_URL", { url: url.toString() }));
+        
         // Creates fetch headers
         const headers = new Headers();
         headers.append("user-agent", CurseForgeRegistry.USER_AGENT);
@@ -100,24 +105,26 @@ export class CurseForgeRegistry {
         }
 
         // Throws error
-        nodeAssert(false, format("CURSE_FORGE:RESPONSE_RATE_LIMIT_TIMEOUT", { url: url.toString() }));
+        nodeAssert(false, format("CURSE_FORGE:REQUEST_RATE_LIMIT_TIMEOUT", { url: url.toString() }));
     }
 
     /**
-     * Fetches a mod's CurseForge upstream from its file fingerprint.
-     * @param fingerprint The file fingerprint of the mod.
-     * @returns The CurseForge upstream of this mod.
+     * Fetches the CurseForge upstream from an addon's file fingerprint.
+     * @param fingerprint The file fingerprint of the addon.
+     * @returns The CurseForge upstream of the addon.
      */
-    static async fetchUpstreamFromFileFingerprint(fingerprint: number): Promise<MinecraftUpstream> {
-        // Retrieves response from CurseForge
+    static async fetchUpstreamFromFileFingerprint(fingerprint: number): Promise<MinecraftAddonUpstream> {
+        // Creates request URL
         const url = CurseForgeRegistry.createBaseURL("/fingerprints");
+        
+        // Awaits response from CurseForge
         const response = await CurseForgeRegistry.createPostRequest(url, {
             fingerprints: [ fingerprint ]
         });
-        nodeAssert(response.ok, format("CURSE_FORGE:NO_SUCH_FILE_FINGERPRINT", { fingerprint }));
+        nodeAssert(response.ok, format("CURSE_FORGE:UPSTREAM_NO_SUCH_FILE_FINGERPRINT", { fingerprint }));
         
-        // Parses relevant fields from response
-        const { data: { exactMatches: matches } } = await response.json() as {
+        // Parses matches from response
+        const { data: { exactMatches: matches } }= await response.json() as {
             data: {
                 exactMatches: {
                     id: number;
@@ -125,6 +132,7 @@ export class CurseForgeRegistry {
                         downloadUrl: string;
                         fileDate: string;
                         fileName: string;
+                        gameVersions: string[];
                         hashes: {
                             algo: number;
                             value: string;
@@ -134,32 +142,65 @@ export class CurseForgeRegistry {
                 }[];
             };
         };
-        nodeAssert(matches.length > 0, format("CURSE_FORGE:NO_SUCH_FILE_FINGERPRINT", { fingerprint }));
+        nodeAssert(matches.length > 0, format("CURSE_FORGE:UPSTREAM_NO_SUCH_FILE_FINGERPRINT", { fingerprint }));
+
+        // Parses match from matches
         const match = matches[0];
+
+        // Parses hash from match
         const hash = match.file.hashes.find((hash) => hash.algo === 1);
-        nodeAssert(typeof hash !== "undefined", format("CURSE_FORGE:MISSING_FILE_HASH", { fingerprint }));
+        nodeAssert(typeof hash !== "undefined", format("CURSE_FORGE:UPSTREAM_MISSING_FILE_HASH_FILE_FINGERPRINT", { fingerprint }));
+
+        // Parses Minecraft from match
+        const minecraft = match.file.gameVersions.join(";");
+        nodeAssert(minecraft.length, format("CURSE_FORGE:UPSTREAM_MISSING_MINECRAFT_VERSION_FILE_FINGERPRINT", { fingerprint }));
+        
+        // Returns upstream
         return {
             date: +new Date(match.file.fileDate),
             file: match.file.fileName,
             hash: hash.value,
-            id: match.id.toString(),
-            url: match.file.downloadUrl ?? `https://www.curseforge.com/api/v1/mods/${match.id}/files/${match.file.id}/download`,
-            version: match.file.id.toString()
+            major: match.id.toString(),
+            minecraft: minecraft,
+            minor: match.file.id.toString(),
+            registry: MinecraftAddonRegistry.CURSE_FORGE,
+            url: match.file.downloadUrl ?? `https://www.curseforge.com/api/v1/mods/${match.id}/files/${match.file.id}/download`
         };
     }
 
-    static async fetchUpstreamsFromModID(id: number): Promise<MinecraftUpstream[]> {
-        // Retrieves response from CurseForge
-        const url = CurseForgeRegistry.createBaseURL(`/mods/${id}/files`);
-        const response = await CurseForgeRegistry.createGetRequest(url);
-        nodeAssert(response.ok, format("CURSE_FORGE:NO_SUCH_MOD_ID", { id }));
+    /**
+     * Fetches the CurseForge minor upstreams from an addon's major.
+     * @param major The major of the addon.
+     * @param flavor The flavor of the addon.
+     * @param minecraft The Minecraft version of the addon.
+     * @returns The CurseForge upstreams of the addon.
+     */
+    static async fetchMinorUpstreamsFromMajor(major: string, flavor: MinecraftAddonFlavor, minecraft: string): Promise<MinecraftAddonUpstream[]> {
+        // Translates addon flavor to CurseForge-parsable loader
+        const loaders = {
+            [ MinecraftAddonFlavor.FABRIC ]: 4,
+            [ MinecraftAddonFlavor.FORGE ]: 1,
+            [ MinecraftAddonFlavor.NEO_FORGE ]: 6
+        };
+        nodeAssert(flavor in loaders, format("CURSE_FORGE:UPSTREAM_INVALID_ADDON_FLAVOR", { flavor, major }));
+        const loader = loaders[flavor as keyof typeof loaders];
         
-        // Parses relevant fields from response
-        const { data: mods } = await response.json() as {
+        // Creates request URL
+        const url = CurseForgeRegistry.createBaseURL(`/mods/${major}/files`);
+        url.searchParams.append("modLoaderType", JSON.stringify(loader));
+        url.searchParams.append("gameVersion", JSON.stringify(minecraft));
+        
+        // Awaits response from CurseForge
+        const response = await CurseForgeRegistry.createGetRequest(url);
+        nodeAssert(response.ok, format("CURSE_FORGE:UPSTREAM_NO_SUCH_UPSTREAM_MAJOR", { major }));
+
+        // Parses files from response
+        const { data: files } = await response.json() as {
             data: {
                 downloadUrl: string;
                 fileDate: string;
                 fileName: string;
+                gameVersions: string[];
                 hashes: {
                     algo: number;
                     value: string;
@@ -168,17 +209,23 @@ export class CurseForgeRegistry {
                 modId: number;
             }[];
         };
-        nodeAssert(mods.length > 0, format("CURSE_FORGE:NO_SUCH_MOD_ID", { id }));
-        return mods.map((mod) => {
-            const hash = mod.hashes.find((hash) => hash.algo === 1);
-            nodeAssert(typeof hash !== "undefined", format("CURSE_FORGE:MISSING_FILE_HASH", { id }));
+        nodeAssert(files.length > 0, format("CURSE_FORGE:UPSTREAM_NO_SUCH_UPSTREAM_MAJOR", { major }));
+
+        // Returns upstreams
+        return files.map((file) => {
+            const hash = file.hashes.find((hash) => hash.algo === 1);
+            nodeAssert(typeof hash !== "undefined", format("CURSE_FORGE:UPSTREAM_MISSING_FILE_HASH_MAJOR", { major }));
+            const minecraft = file.gameVersions.join(";");
+            nodeAssert(minecraft.length, format("CURSE_FORGE:UPSTREAM_MISSING_MINECRAFT_VERSION_MAJOR", { major }));
             return {
-                date: +new Date(mod.fileDate),
-                file: mod.fileName,
+                date: +new Date(file.fileDate),
+                file: file.fileName,
                 hash: hash.value,
-                id: mod.id.toString(),
-                url: mod.downloadUrl ?? `https://www.curseforge.com/api/v1/mods/${mod.modId}/files/${mod.id}/download`,
-                version: mod.id.toString()
+                major: file.modId.toString(),
+                minecraft: minecraft,
+                minor: file.id.toString(),
+                registry: MinecraftAddonRegistry.CURSE_FORGE,
+                url: file.downloadUrl ?? `https://www.curseforge.com/api/v1/mods/${file.modId}/files/${file.id}/download`,
             };
         });
     }

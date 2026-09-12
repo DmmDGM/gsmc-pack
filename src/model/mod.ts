@@ -1,148 +1,217 @@
 // Imports
+import type { MinecraftInstance } from "./instance";
 import nodeAssert from "node:assert";
-import fingerprinter from "@meza/curseforge-fingerprint";
-import AdmZip from "adm-zip";
-import { format, MinecraftAddon, MinecraftAddonType, MinecraftModFlavor, MinecraftRegistryType } from "../core/common";
+import { relative as relativePath } from "node:path";
+import { format } from "../core/errors";
+import { MinecraftAddon } from "./addon";
+import { MinecraftAddonFlavor } from "../core/flavor";
+import { MinecraftAddonMetadata } from "../core/metadata";
+import { MinecraftAddonType } from "../core/type";
 import { CurseForgeRegistry } from "../registry/curseforge";
 import { ModrinthRegistry } from "../registry/modrinth";
 
-/** A representation of a Minecraft mod. */
-export abstract class MinecraftMod {
-    /** The path to this mod. */
-    readonly path: string;
-
+/** Represents a Minecraft mod. */
+export class MinecraftMod extends MinecraftAddon {
     /**
-     * Creates a new Minecraft mod representation.
+     * Creates a new Minecraft mod instance.
+     * @param instance The instance that owns this mod.
      * @param path The path to this mod.
+     * @param metadata The metadata of this mod.
      */
-    constructor(path: string) {
+    constructor(instance: MinecraftInstance, path: string, metadata: MinecraftAddonMetadata | null) {
         // Ensures '.jar' file extension
-        const isModDotJar = path.endsWith(".jar") || path.endsWith(".jar.disabled");
-        nodeAssert(isModDotJar, format("MOD:NOT_A_DOT_JAR", { path }));
-        
-        // Initializes class
-        this.path = path;
+        const isSourceFileDotJar = path.endsWith(".jar") || path.endsWith(".jar.disabled");
+        nodeAssert(isSourceFileDotJar, format("MOD:SOURCE_FILE_NOT_A_DOT_JAR", { path }));
+
+        // Initializes parent
+        super(instance, path, metadata);
     }
 
     /**
-     * Compiles the CurseForge file fingerprint of this mod.
-     * @returns This mod's CurseForge file fingerprint.
+     * Abandons existing metadata in 'gsmc-pack.json' and rebuilds this mod's metadata from its source file's 'fabric.mod.json' file instead.
+     * @returns A new instance of the same mod with a rebuilt metadata.
      */
-    compileFileFingerprint(): number {
-        // Fingerprints file content
-        return fingerprinter.fingerprint(this.path);
-    }
-
-    /**
-     * Compiles the sha1 file hash of this mod.
-     * @returns This mod's sha1 file hash.
-     */
-    async compileFileHash(): Promise<string> {
-        // Hashes file content
-        return Bun.CryptoHasher.hash("sha1", await Bun.file(this.path).bytes()).toHex();
-    }
-}
-
-/** A representation of an abstract Minecraft mod. */
-export class AbstractMinecraftMod extends MinecraftMod {
-    /**
-     * Resolves this mod as a Fabric mod.
-     * @returns A Fabric representation of this mod.
-     */
-    async resolveAsFabricMod(): Promise<FlavoredMinecraftMod> {
+    async rebuildMetadataFromFabricModJSON(): Promise<MinecraftMod & { metadata: MinecraftAddonMetadata; }> {
         // Ensures existence of 'fabric.mod.json'
-        const zip = new AdmZip(this.path);
-        const entry = zip.getEntry("fabric.mod.json");
-        nodeAssert(entry !== null, format("FABRIC_MOD:MISSING_FABRIC_MOD_JSON", { path: this.path }));
+        const entry = this.parseAdmArchiveFile().getEntry("fabric.mod.json");
+        nodeAssert(entry !== null, format("MOD:REBUILD_MISSING_FABRIC_MOD_JSON", { path: this.path }));
 
-        // Parses metadata from 'fabric.mod.json'
-        const metadata = await new Promise<MinecraftAddon>((resolve, reject) => {
+        // Reads contents from 'fabric.mod.json'
+        const metadata = await new Promise<MinecraftAddonMetadata>((resolve, reject) => {
             entry.getDataAsync(async (data, error) => {
-                // Checks zip error
+                // Handles error
                 if(typeof error !== "undefined") reject(error);
 
-                // Parses metadata json
+                // Parses metadata from 'fabric.mod.json'
                 try {
-                    const json = JSON.parse(data.toString());
-                    nodeAssert("id" in json && "name" in json && "version" in json, format("FABRIC_MOD:BROKEN_FABRIC_MOD_JSON", { path: this.path }));
+                    const json = JSON.parse(data.toString()) as {
+                        id: string;
+                        name: string;
+                        version: string;
+                    };
+                    const isGoodFabricModJSON = "id" in json && "name" in json && "version" in json;
+                    nodeAssert(isGoodFabricModJSON, format("MOD:REBUILD_BAD_FABRIC_MOD_JSON", { path: this.path }));
                     resolve({
-                        flavor: MinecraftModFlavor.FABRIC,
+                        flavor: MinecraftAddonFlavor.FABRIC,
                         id: json["id"],
                         name: json["name"],
+                        path: relativePath(this.instance.path, this.path),
                         type: MinecraftAddonType.MOD,
-                        upstream: await this.resolveModUpstream(),
+                        upstream: await this.rebuildUpstreamFromRegistry(),
                         version: json["version"],
                     });
                 }
                 catch(error) {
                     reject(error);
                 }
-            })
+            });
         });
 
-        // Upgrades representation
-        const hash = await this.compileFileHash();
-        return new FlavoredMinecraftMod(this.path, hash, metadata);
+        // Rebuilds instance from metadata
+        return new MinecraftMod(this.instance, this.path, metadata) as MinecraftMod & { metadata: MinecraftAddonMetadata; };
     }
 
-    async resolveAsForgeMod() {}
-    async resolveAsNeoForgeMod() {}
+    /**
+     * Abandons existing metadata in 'gsmc-pack.json' and rebuilds this mod's metadata from its source file's 'META-INF/mods.toml' file instead.
+     * @returns A new instance of the same mod with a rebuilt metadata.
+     */
+    async rebuildMetadataFromMetaInfModsTOML(): Promise<MinecraftMod & { metadata: MinecraftAddonMetadata; }> {
+        // Ensures existence of 'META-INF/mods.toml'
+        const entry = this.parseAdmArchiveFile().getEntry("META-INF/mods.toml");
+        nodeAssert(entry !== null, format("MOD:REBUILD_MISSING_META_INF_MODS_TOML", { path: this.path }));
+
+        // Reads contents from 'META-INF/mods.toml'
+        const metadata = await new Promise<MinecraftAddonMetadata>((resolve, reject) => {
+            entry.getDataAsync(async (data, error) => {
+                // Handles error
+                if(typeof error !== "undefined") reject(error);
+
+                // Parses metadata from 'META-INF/mods.toml'
+                try {
+                    const toml = Bun.TOML.parse(data.toString()) as {
+                        mods: {
+                            displayName: string;
+                            modId: string;
+                            version: string;
+                        }[];
+                    };
+                    const isGoodMetaInfModsTOML = toml.mods.length > 0 && "modId" in toml.mods[0] && "displayName" in toml.mods[0] && "version" in toml.mods[0];
+                    nodeAssert(isGoodMetaInfModsTOML, format("MOD:REBUILD_BAD_META_INF_MODS_TOML", { path: this.path }));
+                    resolve({
+                        flavor: MinecraftAddonFlavor.FORGE,
+                        id: toml.mods[0]["modId"],
+                        name: toml.mods[0]["displayName"],
+                        path: relativePath(this.instance.path, this.path),
+                        type: MinecraftAddonType.MOD,
+                        upstream: await this.rebuildUpstreamFromRegistry(),
+                        version: toml.mods[0]["version"],
+                    });
+                }
+                catch(error) {
+                    reject(error);
+                }
+            });
+        });
+
+        // Rebuilds instance from metadata
+        return new MinecraftMod(this.instance, this.path, metadata) as MinecraftMod & { metadata: MinecraftAddonMetadata; };
+    }
 
     /**
-     * Resolves this mod as a flavored mod.
-     * @returns A flavored representation of this mod.
+     * Abandons existing metadata in 'gsmc-pack.json' and rebuilds this mod's metadata from its source file's 'META-INF/neoforge.mods.toml' file instead.
+     * @returns A new instance of the same mod with a rebuilt metadata.
      */
-    async resolveAsFlavoredMod(): Promise<FlavoredMinecraftMod> {
-        // Attempts to resolve this mod as Fabric mod
+    async rebuildMetadataFromMetaInfNeoForgeModsTOML(): Promise<MinecraftMod & { metadata: MinecraftAddonMetadata; }> {
+        // Ensures existence of 'META-INF/neoforge.mods.toml'
+        const entry = this.parseAdmArchiveFile().getEntry("META-INF/neoforge.mods.toml");
+        nodeAssert(entry !== null, format("MOD:REBUILD_MISSING_META_INF_NEO_FORGE_MODS_TOML", { path: this.path }));
+
+        // Reads contents from 'META-INF/neoforge.mods.toml'
+        const metadata = await new Promise<MinecraftAddonMetadata>((resolve, reject) => {
+            entry.getDataAsync(async (data, error) => {
+                // Handles error
+                if(typeof error !== "undefined") reject(error);
+
+                // Parses metadata from 'META-INF/neoforge.mods.toml'
+                try {
+                    const toml = Bun.TOML.parse(data.toString()) as {
+                        mods: {
+                            displayName: string;
+                            modId: string;
+                            version: string;
+                        }[];
+                    };
+                    const isGoodMetaInfModsTOML = toml.mods.length > 0 && "modId" in toml.mods[0] && "displayName" in toml.mods[0] && "version" in toml.mods[0];
+                    nodeAssert(isGoodMetaInfModsTOML, format("MOD:REBUILD_BAD_META_INF_NEO_FORGE_MODS_TOML", { path: this.path }));
+                    resolve({
+                        flavor: MinecraftAddonFlavor.NEO_FORGE,
+                        id: toml.mods[0]["modId"],
+                        name: toml.mods[0]["displayName"],
+                        path: relativePath(this.instance.path, this.path),
+                        type: MinecraftAddonType.MOD,
+                        upstream: await this.rebuildUpstreamFromRegistry(),
+                        version: toml.mods[0]["version"],
+                    });
+                }
+                catch(error) {
+                    reject(error);
+                }
+            });
+        });
+
+        // Rebuilds instance from metadata
+        return new MinecraftMod(this.instance, this.path, metadata) as MinecraftMod & { metadata: MinecraftAddonMetadata; };
+    }
+
+    /**
+     * Abandons existing metadata in 'gsmc-pack.json' and rebuilds this mod's metadata from its source file instead.
+     * @returns A new instance of the same mod with a rebuilt metadata.
+     */
+    async rebuildMetadataFromSourceFile(): Promise<MinecraftMod & { metadata: MinecraftAddonMetadata; }> {
+        // Checks 'fabric.mod.json' file
         try {
-            return await this.resolveAsFabricMod();
+            return await this.rebuildMetadataFromFabricModJSON();
+        }
+        catch {}
+        
+        // Checks 'META-INF/neoforge.mods.toml' file
+        try {
+            return await this.rebuildMetadataFromMetaInfNeoForgeModsTOML();
+        }
+        catch {}
+
+        // Checks 'META-INF/mods.toml' file
+        try {
+            return await this.rebuildMetadataFromMetaInfModsTOML();
         }
         catch {}
 
         // Throws error
-        nodeAssert(false, format("MOD:INVALID_OR_UNSUPPORTED_FLAVOR", { path: this.path }));
+        nodeAssert(false, format("MOD:REBUILD_MISSING_METADATA_IN_SOURCE_FILE", { path: this.path }));
     }
 
     /**
-     * Resolves the upstream of this mod.
-     * @returns This mod's upstream.
+     * Abandons existing upstream in 'gsmc-pack.json' and rebuilds this mod's upstream from an available registry instead.
+     * @returns A new upstream of this mod.
      */
-    async resolveModUpstream(): Promise<string> {
-        // Checks if Modrinth has this mod
+    async rebuildUpstreamFromRegistry(): Promise<string> {
+        // Checks Modrinth registry
         try {
-            const hash = await this.compileFileHash();
+            const hash = await this.compileSha1FileHash();
             const upstream = await ModrinthRegistry.fetchUpstreamFromFileHash(hash);
-            return `${MinecraftRegistryType.MODRINTH}::${upstream.id}@${upstream.version}::${upstream.url}`;
+            return `${upstream.registry}::${upstream.major}@${upstream.minor}::${upstream.minecraft}::${upstream.url}::${upstream.date}`;
         }
         catch {}
 
-        // Checks if CurseForge has this mod
+        // Checks CurseForge registry
         try {
-            const fingerprint = this.compileFileFingerprint();
+            const fingerprint = this.compileCurseForgeFileFingerprint();
             const upstream = await CurseForgeRegistry.fetchUpstreamFromFileFingerprint(fingerprint);
-            return `${MinecraftRegistryType.CURSE_FORGE}::${upstream.id}@${upstream.version}::${upstream.url}`;
+            return `${upstream.registry}::${upstream.major}@${upstream.minor}::${upstream.minecraft}::${upstream.url}::${upstream.date}`;
         }
         catch {}
 
         // Throws error
-        nodeAssert(false, format("MOD:INVALID_OR_UNSUPPORTED_REGISTRY", { path: this.path }));
-    }
-}
-
-/** A representation of a flavored Minecraft mod. */
-export class FlavoredMinecraftMod extends AbstractMinecraftMod {
-    /** The sha1 file hash of this mod. */
-    readonly hash: string;
-    /** The metadata of this mod. */
-    readonly metadata: MinecraftAddon;
-    
-    /** Creates a new Fabric Minecraft mod representation. */
-    constructor(path: string, hash: string, metadata: MinecraftAddon) {
-        // Extends parent
-        super(path);
-
-        // Initializes class
-        this.hash = hash;
-        this.metadata = metadata;
+        nodeAssert(false, format("MOD:REBUILD_NO_VALID_UPSTREAM_REGISTRY", { path: this.path }));
     }
 }
