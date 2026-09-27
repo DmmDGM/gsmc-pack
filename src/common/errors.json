@@ -1,0 +1,10 @@
+{
+    "DOWNLOAD_BAD_UPSTREAM": "Failed to download file from upstream due to invalid or corrupt upstream string.",
+    "DOWNLOAD_NO_UPSTREAM": "Failed to download file from upstream due to upstream string being null or empty.",
+    "PARSE_BAD_UPSTREAM": "Failed to parse upstream due to invalid or corrupt upstream string.",
+    "PING_BAD_UPSTREAM": "Failed to ping upstream due to invalid or corrupt upstream string.",
+    "PING_NO_UPSTREAM": "Failed to ping upstream due to upstream string being null or empty.",
+    "REGISTRY_BAD_RESPONSE": "Registry returned non-OK response with status code '$code'.",
+    "REGISTRY_TIMED_OUT": "Registry did not respond in time due to client being ratelimited. Please try again in a few minutes.",
+    "REMAP_NO_UPSTREAM": "Failed to remap file to upstream as no results matched this file."
+}
