@@ -73,6 +73,17 @@ export class MinecraftAddon {
     }
 
     /**
+     * Deletes source file.
+     * @param commit Whether to modify instance.
+     */
+    async deleteSource(commit: boolean = false): Promise<MinecraftAddon> {
+        // Deletes source
+        if(this.source === null) throw new Error(error("DELETE_NO_SOURCE"));
+        if(commit) await this.source.unlink();
+        return new MinecraftAddon(this.instance, null, this.upstream);
+    }
+
+    /**
      * Downloads source file.
      * @param commit Whether to modify instance.
      * @returns Minecraft download and eventual Minecraft addon.
@@ -85,10 +96,10 @@ export class MinecraftAddon {
             try {
                 const directory = this.getDirectory();
                 const source = commit ? await download.writeFile(directory) : this.source;
-                await download.disposeDownload();
                 return resolve(new MinecraftAddon(this.instance, source, this.upstream));
             }
             catch(reason) { return reject(reason); }
+            finally { await download.disposeDownload(); }
         });
         return [ download, addon ];
     }

@@ -14,5 +14,6 @@
     "SOURCE_NO_UPSTREAM": "Failed to fetch upstream string, no upstreams were found.",
     "LOAD_BAD_UPSTREAM": "",
     "RESOLVE_BAD_QUERY": "",
-    "RESOLVE_NO_UPSTREAM": ""
+    "RESOLVE_NO_UPSTREAM": "",
+    "DELETE_NO_SOURCE": ""
 }

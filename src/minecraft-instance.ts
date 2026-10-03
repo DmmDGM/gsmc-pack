@@ -60,61 +60,33 @@ export class MinecraftInstance {
         this.path = path;
     }
 
-    async addAddon(upstream: string, commit: boolean = false): Promise<MinecraftAddon> {
-        // Loads upstream
-        const { hash } = MinecraftRegistry.loadUpstream(upstream);
-        
-        // Writes pack
-        if(commit) {
-            const pack = await this.readPackJSON();
-            pack.addons[hash] = upstream;
-            await this.writePackJSON(pack);
-        }
-
-        // Returns linked
-        const files = await this.listFiles();
-        for(const file of files) {
-            const fileHash = Bun.CryptoHasher.hash("sha1", await file.arrayBuffer()).toHex();
-            if(hash === fileHash) return new MinecraftAddon(this, file, upstream);
-        }
-
-        // Returns unlinked
-        return new MinecraftAddon(this, null, upstream);
-    }
-
-    async *deleteUnlinked(commit: boolean = false) {
-        
-    }
-
-    async removeAddon(hash: string, commit: boolean = false): Promise<MinecraftAddon> {
-        // Finds upstream
+    /**
+     * Adds upstream string.
+     * @param upstream Upstring string.
+     * @param commit Whether to modify instance.
+     * @returns Updated pack.
+     */
+    async addUpstream(upstream: string, commit: boolean = false): Promise<PackJSON> {
+        // Adds upstream string
         const pack = await this.readPackJSON();
-        if(hash in pack.addons === false) throw new Error("REMOVE_NO_ADDON");
-        const upstream = pack.addons[hash];
+        const { hash } = MinecraftRegistry.loadUpstream(upstream);
+        pack.addons[hash] = upstream;
 
-        // Writes pack
-        if(commit) {
-            if(hash in pack.addons) delete pack.addons[hash];
-            await this.writePackJSON(pack);
-        }
+        // Writes pack file
+        if(commit) await this.writePackJSON(pack);
 
-        // Returns linked
-        const files = await this.listFiles();
-        for(const file of files) {
-            const fileHash = Bun.CryptoHasher.hash("sha1", await file.arrayBuffer()).toHex();
-            if(hash === fileHash) return new MinecraftAddon(this, file, upstream);
-        }
-
-        // Returns unlinked
-        return new MinecraftAddon(this, null, upstream);
+        // Returns pack
+        return pack;
     }
 
-    async updateAddon(hash: string, upstream: string, commit: boolean = false): Promise<MinecraftAddon> {
-
-    }
-
-    async *migrateEnvironment(environment: PackJSON["environment"], commit: boolean = false): AsyncGenerator<MinecraftAddon, void, void> {
-
+    /**
+     * Deletes unlinked addons.
+     * @param commit Whether to modify instance.
+     */
+    async *deleteUnlinked(commit: boolean = false): AsyncGenerator<MinecraftAddon, void, void> {
+        // Deletes addons
+        const { unlinked } = await this.listAddons();
+        for(const addon of unlinked) yield addon.deleteSource(commit);
     }
 
     /**
@@ -128,11 +100,15 @@ export class MinecraftInstance {
     }
 
     /**
-     * Lists addons in instance..
-     * @returns List of linked addons, list of unlinked addons, and list of missing addons.
+     * Lists addons.
+     * @returns List of linked addons, list of missing addons, and list of unlinked addons.
      */
-    async listAddons(): Promise<{ linked: MinecraftAddon[]; missing: MinecraftAddon[]; unlinked: MinecraftAddon[]; }> {
-        // Lists local addons
+    async listAddons(): Promise<{
+        linked: MinecraftAddon[];
+        missing: MinecraftAddon[];
+        unlinked: MinecraftAddon[];
+    }> {
+        // Lists addons
         const pack = await this.readPackJSON();
         const files = await this.listFiles();
         const hashes = new Set(Object.keys(pack.addons));
@@ -150,7 +126,7 @@ export class MinecraftInstance {
     }
 
     /**
-     * Lists files in instance.
+     * Lists files.
      * @returns List of files.
      */
     async listFiles(): Promise<Bun.BunFile[]> {
@@ -217,6 +193,85 @@ export class MinecraftInstance {
     }
 
     /**
+     * List migrates.
+     * @param environment Migration environment.
+     * @returns List of found migrates, list of missing migrates, and list of okay migrates.
+     */
+    async listMigrates(environment: MinecraftEnvironment): Promise<{
+        found: { [ Hash in string ]: string; };
+        missing: { [ Hash in string ]: string; };
+        okay: { [ Hash in string ]: string; };
+    }> {
+        // Loads environment
+        const pack = await this.readPackJSON();
+        const loaders = {
+            [ MinecraftTypeEnum.DATAPACK ]: environment.datapackLoader,
+            [ MinecraftTypeEnum.MOD ]: environment.modLoader,
+            [ MinecraftTypeEnum.PLUGIN ]: environment.pluginLoader,
+            [ MinecraftTypeEnum.RESOURCEPACK ]: environment.resourcepackLoader,
+            [ MinecraftTypeEnum.SHADERPACK ]: environment.shaderpackLoader
+        };
+        
+        // Lists migrates
+        const found: { [ Hash in string ]: string; } = {};
+        const okay: { [ Hash in string ]: string; } = {};
+        const missing: { [ Hash in string ]: string; } = {};
+        for(const hash in pack.addons) {
+            const upstream = pack.addons[hash];
+            const { id } = MinecraftRegistry.loadUpstream(upstream);
+            const type = MinecraftRegistry.loadUpstreamBestType(upstream);
+            if(MinecraftRegistry.satisfiesEnvironment(upstream, environment)) okay[hash] = upstream;
+            else try { found[hash] = await this.resolveQuery(`${id}#${loaders[type]}=${environment.minecraft}`); }
+            catch { missing[hash] = upstream; }
+        }
+
+        // Returns results
+        return { found, okay, missing };
+    }
+
+    /**
+     * List upgrades.
+     * @returns List of found upgrades, list of ignored upgrades, list of missing upgrades, and list of okay upgrades.
+     */
+    async listUpgrades(): Promise<{
+        found: { [ Hash in string ]: string; };
+        ignored: { [ Hash in string ]: string; };
+        missing: { [ Hash in string ]: string; };
+        okay: { [ Hash in string ]: string; };
+    }> {
+        // Loads environment
+        const pack = await this.readPackJSON();
+        const loaders = {
+            [ MinecraftTypeEnum.DATAPACK ]: pack.environment.datapackLoader,
+            [ MinecraftTypeEnum.MOD ]: pack.environment.modLoader,
+            [ MinecraftTypeEnum.PLUGIN ]: pack.environment.pluginLoader,
+            [ MinecraftTypeEnum.RESOURCEPACK ]: pack.environment.resourcepackLoader,
+            [ MinecraftTypeEnum.SHADERPACK ]: pack.environment.shaderpackLoader
+        };
+        
+        // Lists upgrades
+        const found: { [ Hash in string ]: string; } = {};
+        const ignored: { [ Hash in string ]: string; } = {};
+        const okay: { [ Hash in string ]: string; } = {};
+        const missing: { [ Hash in string ]: string; } = {};
+        for(const hash in pack.addons) {
+            const upstream = pack.addons[hash];
+            const { id } = MinecraftRegistry.loadUpstream(upstream);
+            const type = MinecraftRegistry.loadUpstreamBestType(upstream);
+            if(!MinecraftRegistry.satisfiesEnvironment(upstream, pack.environment)) ignored[hash] = upstream;
+            else try {
+                const upgrade = await this.resolveQuery(`${id}@latest#${loaders[type]}=${pack.environment.minecraft}`);
+                if(upstream === upgrade) okay[hash] = upstream;
+                else found[hash] = upgrade;
+            }
+            catch { missing[hash] = upstream; }
+        }
+
+        // Returns results
+        return { found, ignored, okay, missing };
+    }
+
+    /**
      * Reads data from GSMC-Pack JSON file.
      * @returns GSMC-Pack JSON.
      */
@@ -236,6 +291,45 @@ export class MinecraftInstance {
         // Relinks addons
         const { unlinked } = await this.listAddons();
         for(const addon of unlinked) yield addon.relinkUpstream(commit);
+    }
+
+    /**
+     * Remove upstream string.
+     * @param hash SHA-1 hash.
+     * @param commit Whether to modify instance.
+     * @returns Updated pack.
+     */
+    async removeUpstream(hash: string, commit: boolean = false): Promise<PackJSON> {
+        // Removes upstream string
+        const pack = await this.readPackJSON();
+        if(hash in pack.addons) delete pack.addons[hash];
+        else throw new Error("REMOVE_NO_ADDON");
+        
+        // Writes pack file
+        if(commit) await this.writePackJSON(pack);
+
+        // Returns pack
+        return pack;
+    }
+
+    /**
+     * Replaces upstream string.
+     * @param hash SHA-1 hash.
+     * @param upstream Upstream string.
+     * @param commit Whether to modify instance.
+     * @returns Updated pack.
+     */
+    async replaceUpstream(hash: string, upstream: string, commit: boolean = false): Promise<PackJSON> {
+        // Replaces upstream string
+        const pack = await this.readPackJSON();
+        if(hash in pack.addons) pack.addons[hash] = upstream;
+        else throw new Error("REPLACE_NO_ADDON");
+        
+        // Writes pack file
+        if(commit) await this.writePackJSON(pack);
+
+        // Returns pack
+        return pack;
     }
 
     /**
