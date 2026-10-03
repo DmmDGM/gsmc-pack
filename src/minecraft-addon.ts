@@ -1,9 +1,18 @@
 // Imports
 import type { MinecraftDownload } from "./minecraft-download";
 import type { MinecraftInstance } from "./minecraft-instance";
-import { resolve as resolvePath } from "node:path";
+import { basename as getBasename, resolve as resolvePath } from "node:path";
 import { error } from "./error";
-import { MinecraftRegistry, MinecraftTypeEnum } from "./minecraft-registry";
+import { MinecraftEnvironment, MinecraftRegistry, MinecraftTypeEnum } from "./minecraft-registry";
+import AdmZip from "adm-zip";
+
+export interface MinecraftMetadata {
+    authors: string[];
+    description: string;
+    name: string;
+    id: string;
+    version: string;
+}
 
 /** Minecraft addon. */
 export class MinecraftAddon {
@@ -94,7 +103,8 @@ export class MinecraftAddon {
         const download = await MinecraftRegistry.downloadSource(this.upstream);
         const addon = new Promise<MinecraftAddon>(async (resolve, reject) => {
             try {
-                const directory = this.getDirectory();
+                const pack = await this.instance.readPackJSON();
+                const directory = this.getDirectory(pack.environment);
                 const source = commit ? await download.writeFile(directory) : this.source;
                 return resolve(new MinecraftAddon(this.instance, source, this.upstream));
             }
@@ -116,12 +126,13 @@ export class MinecraftAddon {
 
     /**
      * Gets addon directory.
+     * @param environment Minecraft environment.
      * @returns Addon directory.
      */
-    getDirectory(): string {
+    getDirectory(environment: MinecraftEnvironment): string {
         // Gets directory
         if(this.upstream === null) throw new Error(error("INFER_NO_UPSTREAM"));
-        const type = MinecraftRegistry.loadUpstreamBestType(this.upstream);
+        const type = MinecraftRegistry.loadUpstreamBestType(this.upstream, environment);
         switch(type) {
             case MinecraftTypeEnum.DATAPACK: return resolvePath(this.instance.path, MinecraftAddon.getDatapacksSubdirectory());
             case MinecraftTypeEnum.MOD: return resolvePath(this.instance.path, MinecraftAddon.getModsSubdirectory());
@@ -130,6 +141,181 @@ export class MinecraftAddon {
             case MinecraftTypeEnum.SHADERPACK: return resolvePath(this.instance.path, MinecraftAddon.getShaderpacksSubdirectory());
             default: throw new Error(error("INFER_BAD_UPSTREAM"));
         }
+    }
+
+    async readMetadata(): Promise<MinecraftMetadata> {
+        try { return await this.readFabricModJSON(); } catch {}
+        try { return await this.readForgeTOML(); } catch {}
+        try { return await this.readNeoForgeTOML(); } catch {}
+        try { return await this.readPluginYAML(); } catch {}
+        try { return await this.readPaperPluginYAML(); } catch {}
+        try { return await this.readPackMCMETA(); } catch {}
+
+        if(this.source === null || typeof this.source.name === "undefined") throw new Error(error("METADATA_NO_SOURCE"));
+        return {
+            authors: [],
+            description: "",
+            id: getBasename(this.source.name),
+            name: getBasename(this.source.name),
+            version: ""
+        };
+    }
+
+    readFabricModJSON(): Promise<MinecraftMetadata> {
+        // Reads source metadata file
+        if(this.source === null) throw new Error(error("METADATA_NO_SOURCE"));
+        const archive = new AdmZip(this.source.name);
+        return new Promise<MinecraftMetadata>(async (resolve, reject) => {
+            archive.readFileAsync("fabric.mod.json", (data) => {
+                if(data === null) return reject(error("METADATA_BAD_SOURCE"));
+                try {
+                    const json = JSON.parse(data.toString()) as object;
+                    if("id" in json === false || "version" in json === false) return reject(error("METADATA_BAD_SOURCE"));
+                    const authors = "authors" in json ? json["authors"] as (string | { "name": string; })[] : [];
+                    const description = "description" in json ? json["description"] as string : "";
+                    const name = "name" in json ? json["name"] as string : json["id"] as string;
+                    return resolve({
+                        authors: authors.map((author) => typeof author === "string" ? author : author.name),
+                        description: description,
+                        id: json["id"] as string,
+                        name: name,
+                        version: json["version"] as string
+                    });
+                }
+                catch { return reject(error("METADATA_BAD_SOURCE")); }
+            });
+        });
+    }
+
+    readForgeTOML(): Promise<MinecraftMetadata> {
+        // Reads source metadata file
+        if(this.source === null) throw new Error(error("METADATA_NO_SOURCE"));
+        const archive = new AdmZip(this.source.name);
+        return new Promise<MinecraftMetadata>(async (resolve, reject) => {
+            archive.readFileAsync("META-INF/forge.toml", (data) => {
+                if(data === null) return reject(error("METADATA_BAD_SOURCE"));
+                try {
+                    const toml = Bun.TOML.parse(data.toString());
+                    if("mods" in toml === false || !Array.isArray(toml.mods) || toml.mods.length === 0) return reject(error("METADATA_BAD_SOURCE"));
+                    const mod = toml.mods[0] as object;
+                    if("modId" in mod === false || "version" in mod === false) return reject(error("METADATA_BAD_SOURCE"));
+                    const author = "authors" in mod ? mod["authors"] as string : "";
+                    const description = "description" in mod ? mod["description"] as string : "";
+                    const name = "displayName" in mod ? mod["displayName"] as string : mod["modId"] as string;
+                    return resolve({
+                        authors: [ author ],
+                        description: description,
+                        id: mod["modId"] as string,
+                        name: name,
+                        version: mod["version"] as string
+                    });
+                }
+                catch { return reject(error("METADATA_BAD_SOURCE")); }
+            });
+        });
+    }
+
+    readPackMCMETA(): Promise<MinecraftMetadata> {
+        // Reads source metadata file
+        if(this.source === null || typeof this.source.name === "undefined") throw new Error(error("METADATA_NO_SOURCE"));
+        const archive = new AdmZip(this.source.name);
+        const name = getBasename(this.source.name);
+        return new Promise<MinecraftMetadata>(async (resolve, reject) => {
+            archive.readFileAsync("pack.mcmeta", (data) => {
+                if(data === null) return reject(error("METADATA_BAD_SOURCE"));
+                try {
+                    const json = JSON.parse(data.toString()) as object;
+                    if("pack" in json === false || typeof json.pack !== "object" || json.pack === null) return reject(error("METADATA_BAD_SOURCE"));
+                    const description = "description" in json.pack ? json.pack["description"] as string : "";
+                    return resolve({
+                        authors: [],
+                        description: description,
+                        id: name,
+                        name: name,
+                        version: ""
+                    });
+                }
+                catch { return reject(error("METADATA_BAD_SOURCE")); }
+            });
+        });
+    }
+
+    readPaperPluginYAML(): Promise<MinecraftMetadata> {
+        // Reads source metadata file
+        if(this.source === null) throw new Error(error("METADATA_NO_SOURCE"));
+        const archive = new AdmZip(this.source.name);
+        return new Promise<MinecraftMetadata>(async (resolve, reject) => {
+            archive.readFileAsync("paper-plugin.yml", (data) => {
+                if(data === null) return reject(error("METADATA_BAD_SOURCE"));
+                try {
+                    const yaml = Bun.YAML.parse(data.toString()) as object;
+                    if("name" in yaml === false || "version" in yaml === false) return reject(error("METADATA_BAD_SOURCE"));
+                    const author = "author" in yaml ? yaml["author"] as string : "";
+                    const description = "description" in yaml ? yaml["description"] as string : "";
+                    return resolve({
+                        authors: [ author ],
+                        description: description,
+                        id: yaml["name"] as string,
+                        name: yaml["name"] as string,
+                        version: yaml["version"] as string
+                    });
+                }
+                catch { return reject(error("METADATA_BAD_SOURCE")); }
+            });
+        });
+    }
+
+    readPluginYAML(): Promise<MinecraftMetadata> {
+        // Reads source metadata file
+        if(this.source === null) throw new Error(error("METADATA_NO_SOURCE"));
+        const archive = new AdmZip(this.source.name);
+        return new Promise<MinecraftMetadata>(async (resolve, reject) => {
+            archive.readFileAsync("plugin.yml", (data) => {
+                if(data === null) return reject(error("METADATA_BAD_SOURCE"));
+                try {
+                    const yaml = Bun.YAML.parse(data.toString()) as object;
+                    if("name" in yaml === false || "version" in yaml === false) return reject(error("METADATA_BAD_SOURCE"));
+                    const author = "author" in yaml ? yaml["author"] as string : "";
+                    const description = "description" in yaml ? yaml["description"] as string : "";
+                    return resolve({
+                        authors: [ author ],
+                        description: description,
+                        id: yaml["name"] as string,
+                        name: yaml["name"] as string,
+                        version: yaml["version"] as string
+                    });
+                }
+                catch { return reject(error("METADATA_BAD_SOURCE")); }
+            });
+        });
+    }
+
+    readNeoForgeTOML(): Promise<MinecraftMetadata> {
+        // Reads source metadata file
+        if(this.source === null) throw new Error(error("METADATA_NO_SOURCE"));
+        const archive = new AdmZip(this.source.name);
+        return new Promise<MinecraftMetadata>(async (resolve, reject) => {
+            archive.readFileAsync("META-INF/neoforge.toml", (data) => {
+                if(data === null) return reject(error("METADATA_BAD_SOURCE"));
+                try {
+                    const toml = Bun.TOML.parse(data.toString());
+                    if("mods" in toml === false || !Array.isArray(toml.mods) || toml.mods.length === 0) return reject(error("METADATA_BAD_SOURCE"));
+                    const mod = toml.mods[0] as object;
+                    if("modId" in mod === false || "version" in mod === false) return reject(error("METADATA_BAD_SOURCE"));
+                    const author = "authors" in mod ? mod["authors"] as string : "";
+                    const description = "description" in mod ? mod["description"] as string : "";
+                    const name = "displayName" in mod ? mod["displayName"] as string : mod["modId"] as string;
+                    return resolve({
+                        authors: [ author ],
+                        description: description,
+                        id: mod["modId"] as string,
+                        name: name,
+                        version: mod["version"] as string
+                    });
+                }
+                catch { return reject(error("METADATA_BAD_SOURCE")); }
+            });
+        });
     }
 
     /**

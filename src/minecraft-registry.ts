@@ -72,12 +72,10 @@ export interface MinecraftEnvironment {
     datapackLoader: MinecraftLoaderEnum;
     /** Preferred Minecraft version. */
     minecraft: string;
-    /** Preferred mod loader. */
-    modLoader: MinecraftLoaderEnum;
-    /** Preferred plugin loader. */
-    pluginLoader: MinecraftLoaderEnum;
     /** Preferred resourcepack loader. */
     resourcepackLoader: MinecraftLoaderEnum;
+    /** Preferred mod / plugin loader. */
+    runtimeLoader: MinecraftLoaderEnum;
     /** Preferred shaderpack loader. */
     shaderpackLoader: MinecraftLoaderEnum;
 }
@@ -172,15 +170,21 @@ export abstract class MinecraftRegistry {
      * @param upstream Upstream string.
      * @returns Upstream type.
      */
-    static loadUpstreamBestType(upstream: string): MinecraftTypeEnum {
+    static loadUpstreamBestType(upstream: string, environment: MinecraftEnvironment): MinecraftTypeEnum {
         // Loads upstream
         const { types } = MinecraftRegistry.loadUpstream(upstream);
         
         // Loads upstream type
+        if([
+            MinecraftLoaderEnum.BUKKIT,
+            MinecraftLoaderEnum.PAPER,
+            MinecraftLoaderEnum.PURPUR,
+            MinecraftLoaderEnum.SPIGOT,
+        ].includes(environment.runtimeLoader) && types.includes(MinecraftTypeEnum.PLUGIN)) return MinecraftTypeEnum.PLUGIN;
         if(types.includes(MinecraftTypeEnum.MOD)) return MinecraftTypeEnum.MOD;
+        if(types.includes(MinecraftTypeEnum.PLUGIN)) return MinecraftTypeEnum.PLUGIN;
         if(types.includes(MinecraftTypeEnum.SHADERPACK)) return MinecraftTypeEnum.SHADERPACK;
         if(types.includes(MinecraftTypeEnum.RESOURCEPACK)) return MinecraftTypeEnum.RESOURCEPACK;
-        if(types.includes(MinecraftTypeEnum.PLUGIN)) return MinecraftTypeEnum.PLUGIN;
         if(types.includes(MinecraftTypeEnum.DATAPACK)) return MinecraftTypeEnum.DATAPACK;
         throw new Error(error("LOAD_BAD_UPSTREAM"));
     }
@@ -197,11 +201,11 @@ export abstract class MinecraftRegistry {
         if(!minecrafts.includes(environment.minecraft)) return false;
 
         // Checks loaders
-        const type = MinecraftRegistry.loadUpstreamBestType(upstream);
+        const type = MinecraftRegistry.loadUpstreamBestType(upstream, environment);
         switch(type) {
             case MinecraftTypeEnum.DATAPACK: return loaders.includes(environment.datapackLoader);
-            case MinecraftTypeEnum.MOD: return loaders.includes(environment.modLoader);
-            case MinecraftTypeEnum.PLUGIN: return loaders.includes(environment.pluginLoader);
+            case MinecraftTypeEnum.MOD: return loaders.includes(environment.runtimeLoader);
+            case MinecraftTypeEnum.PLUGIN: return loaders.includes(environment.runtimeLoader);
             case MinecraftTypeEnum.RESOURCEPACK: return loaders.includes(environment.resourcepackLoader);
             case MinecraftTypeEnum.SHADERPACK: return loaders.includes(environment.shaderpackLoader);
         }

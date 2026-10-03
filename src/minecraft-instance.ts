@@ -35,9 +35,8 @@ export class MinecraftInstance {
         environment: {
             datapackLoader: MinecraftLoaderEnum.DATAPACK,
             minecraft: "26.3",
-            modLoader: MinecraftLoaderEnum.FABRIC,
-            pluginLoader: MinecraftLoaderEnum.PAPER,
             resourcepackLoader: MinecraftLoaderEnum.MINECRAFT,
+            runtimeLoader: MinecraftLoaderEnum.FABRIC,
             shaderpackLoader: MinecraftLoaderEnum.IRIS
         },
         name: "",
@@ -206,8 +205,8 @@ export class MinecraftInstance {
         const pack = await this.readPackJSON();
         const loaders = {
             [ MinecraftTypeEnum.DATAPACK ]: environment.datapackLoader,
-            [ MinecraftTypeEnum.MOD ]: environment.modLoader,
-            [ MinecraftTypeEnum.PLUGIN ]: environment.pluginLoader,
+            [ MinecraftTypeEnum.MOD ]: environment.runtimeLoader,
+            [ MinecraftTypeEnum.PLUGIN ]: environment.runtimeLoader,
             [ MinecraftTypeEnum.RESOURCEPACK ]: environment.resourcepackLoader,
             [ MinecraftTypeEnum.SHADERPACK ]: environment.shaderpackLoader
         };
@@ -218,10 +217,12 @@ export class MinecraftInstance {
         const missing: { [ Hash in string ]: string; } = {};
         for(const hash in pack.addons) {
             const upstream = pack.addons[hash];
-            const { id } = MinecraftRegistry.loadUpstream(upstream);
-            const type = MinecraftRegistry.loadUpstreamBestType(upstream);
             if(MinecraftRegistry.satisfiesEnvironment(upstream, environment)) okay[hash] = upstream;
-            else try { found[hash] = await this.resolveQuery(`${id}#${loaders[type]}=${environment.minecraft}`); }
+            else try {
+                const { id } = MinecraftRegistry.loadUpstream(upstream);
+                const type = MinecraftRegistry.loadUpstreamBestType(upstream, environment);
+                found[hash] = await this.resolveQuery(`${id}@latest#${loaders[type]}=${environment.minecraft}`);
+            }
             catch { missing[hash] = upstream; }
         }
 
@@ -243,8 +244,8 @@ export class MinecraftInstance {
         const pack = await this.readPackJSON();
         const loaders = {
             [ MinecraftTypeEnum.DATAPACK ]: pack.environment.datapackLoader,
-            [ MinecraftTypeEnum.MOD ]: pack.environment.modLoader,
-            [ MinecraftTypeEnum.PLUGIN ]: pack.environment.pluginLoader,
+            [ MinecraftTypeEnum.MOD ]: pack.environment.runtimeLoader,
+            [ MinecraftTypeEnum.PLUGIN ]: pack.environment.runtimeLoader,
             [ MinecraftTypeEnum.RESOURCEPACK ]: pack.environment.resourcepackLoader,
             [ MinecraftTypeEnum.SHADERPACK ]: pack.environment.shaderpackLoader
         };
@@ -256,10 +257,10 @@ export class MinecraftInstance {
         const missing: { [ Hash in string ]: string; } = {};
         for(const hash in pack.addons) {
             const upstream = pack.addons[hash];
-            const { id } = MinecraftRegistry.loadUpstream(upstream);
-            const type = MinecraftRegistry.loadUpstreamBestType(upstream);
             if(!MinecraftRegistry.satisfiesEnvironment(upstream, pack.environment)) ignored[hash] = upstream;
             else try {
+                const { id } = MinecraftRegistry.loadUpstream(upstream);
+                const type = MinecraftRegistry.loadUpstreamBestType(upstream, pack.environment);
                 const upgrade = await this.resolveQuery(`${id}@latest#${loaders[type]}=${pack.environment.minecraft}`);
                 if(upstream === upgrade) okay[hash] = upstream;
                 else found[hash] = upgrade;
@@ -348,9 +349,8 @@ export class MinecraftInstance {
         const environment: MinecraftEnvironment = {
             "datapackLoader": typeof loaderOverride === "undefined" ? pack.environment.datapackLoader : loaderOverride.toUpperCase() as MinecraftLoaderEnum,
             "minecraft": typeof minecraftOverride === "undefined" ? pack.environment.minecraft : minecraftOverride.toUpperCase(),
-            "modLoader": typeof loaderOverride === "undefined" ? pack.environment.modLoader : loaderOverride.toUpperCase() as MinecraftLoaderEnum,
-            "pluginLoader": typeof loaderOverride === "undefined" ? pack.environment.pluginLoader : loaderOverride.toUpperCase() as MinecraftLoaderEnum,
             "resourcepackLoader": typeof loaderOverride === "undefined" ? pack.environment.resourcepackLoader : loaderOverride.toUpperCase() as MinecraftLoaderEnum,
+            "runtimeLoader": typeof loaderOverride === "undefined" ? pack.environment.runtimeLoader : loaderOverride.toUpperCase() as MinecraftLoaderEnum,
             "shaderpackLoader": typeof loaderOverride === "undefined" ? pack.environment.shaderpackLoader : loaderOverride.toUpperCase() as MinecraftLoaderEnum,
         };
 
