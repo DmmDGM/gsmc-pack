@@ -7,6 +7,9 @@ import { version as build } from "../package.json";
 
 /** CurseForge registry. */
 export class CurseForgeRegistry extends MinecraftRegistry {
+    /** CurseForge registry. */
+    readonly type = MinecraftRegistryEnum.CURSEFORGE;
+
     /**
      * Creates base URL to API.
      * @param endpoint API endpoint.
@@ -153,7 +156,7 @@ export class CurseForgeRegistry extends MinecraftRegistry {
             id: match.id.toString(),
             loaders: loaders,
             minecrafts: match.file.gameVersions,
-            registry: MinecraftRegistryEnum.CURSEFORGE,
+            registry: this.type,
             tag: match.file.id.toString(),
             types: types,
             url: match.file.downloadUrl ?? `https://www.curseforge.com/api/v1/mods/${match.id}/files/${match.file.id}/download`
@@ -199,7 +202,7 @@ export class CurseForgeRegistry extends MinecraftRegistry {
             id: data.modId.toString(),
             loaders: loaders,
             minecrafts: data.gameVersions,
-            registry: MinecraftRegistryEnum.CURSEFORGE,
+            registry: this.type,
             tag: data.id.toString(),
             types: types,
             url: data.downloadUrl ?? `https://www.curseforge.com/api/v1/mods/${data.modId}/files/${data.id}/download`
@@ -248,7 +251,7 @@ export class CurseForgeRegistry extends MinecraftRegistry {
                 id: entry.modId.toString(),
                 loaders: loaders,
                 minecrafts: entry.gameVersions,
-                registry: MinecraftRegistryEnum.CURSEFORGE,
+                registry: this.type,
                 types: types,
                 tag: entry.id.toString(),
                 url: entry.downloadUrl ?? `https://www.curseforge.com/api/v1/mods/${entry.modId}/files/${entry.id}/download`

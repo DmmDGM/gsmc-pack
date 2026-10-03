@@ -5,8 +5,9 @@ import { resolve as resolvePath } from "node:path";
 import { cwd as getCurrentDirectory } from "node:process";
 import { CurseForgeRegistry } from "./curseforge-registry";
 import { MinecraftAddon } from "./minecraft-addon";
-import { MinecraftLoaderEnum, MinecraftRegistry } from "./minecraft-registry";
+import { MinecraftEnvironment, MinecraftLoaderEnum, MinecraftRegistry, MinecraftTypeEnum } from "./minecraft-registry";
 import { ModrinthRegistry } from "./modrinth-registry";
+import { error } from "./error";
 
 /** GSMC-Pack JSON file. */
 export interface PackJSON {
@@ -17,20 +18,7 @@ export interface PackJSON {
     /** Pack description. */
     description: string;
     /** Preferred environment. */
-    environment: {
-        /** Preferred datapack loader. */
-        datapackLoader: MinecraftLoaderEnum;
-        /** Preferred Minecraft version. */
-        minecraft: string;
-        /** Preferred mod loader. */
-        modLoader: MinecraftLoaderEnum;
-        /** Preferred plugin loader. */
-        pluginLoader: MinecraftLoaderEnum;
-        /** Preferred resourcepack loader. */
-        resourcepackLoader: MinecraftLoaderEnum;
-        /** Preferred shaderpack loader. */
-        shaderpackLoader: MinecraftLoaderEnum;
-    };
+    environment: MinecraftEnvironment;
     /** Pack name. */
     name: string;
     /** Pack version. */
@@ -209,8 +197,67 @@ export class MinecraftInstance {
         for(const addon of unlinked) yield addon.relinkUpstream(commit);
     }
 
-    async resolveQuery(query: string): Promise<string[]> {
-        "modrinth:fabric-api@latest#fabric=1.21.5"
+    async resolveQuery(query: string): Promise<string> {
+        // Parses query
+        const match = query.match(/^(?:([^:@#=]+):)?([^:@#=]+)(?:@([^:@#=]+))?(?:#([^:@#=]+))?(?:=([^:@#=]+))?$/);
+        if(match === null) throw new Error(error("RESOLVE_BAD_QUERY"));
+        const [ _, registryType, lookup, tagOverride, loaderOverride, minecraftOverride ] = match;
+        
+        // Loads environment
+        const pack = await this.readPackJSON();
+        const environment: MinecraftEnvironment = {
+            "datapackLoader": typeof loaderOverride === "undefined" ? pack.environment.datapackLoader : loaderOverride.toUpperCase() as MinecraftLoaderEnum,
+            "minecraft": typeof minecraftOverride === "undefined" ? pack.environment.minecraft : minecraftOverride.toUpperCase(),
+            "modLoader": typeof loaderOverride === "undefined" ? pack.environment.modLoader : loaderOverride.toUpperCase() as MinecraftLoaderEnum,
+            "pluginLoader": typeof loaderOverride === "undefined" ? pack.environment.pluginLoader : loaderOverride.toUpperCase() as MinecraftLoaderEnum,
+            "resourcepackLoader": typeof loaderOverride === "undefined" ? pack.environment.resourcepackLoader : loaderOverride.toUpperCase() as MinecraftLoaderEnum,
+            "shaderpackLoader": typeof loaderOverride === "undefined" ? pack.environment.shaderpackLoader : loaderOverride.toUpperCase() as MinecraftLoaderEnum,
+        };
+
+        // Resolves query
+        const registries = typeof registryType === "undefined" ? this.registries : this.registries.filter((registry) => registry.type as string === registryType.toUpperCase());
+        for(const registry of registries) {
+            // Resolves latest
+            if(typeof tagOverride === "undefined" || tagOverride === "latest") {
+                // Resolves query by ID
+                try {
+                    const upstreams = await registry.fetchUpstreamsFromID(environment.minecraft, lookup);
+                    const results = upstreams.filter((upstream) => MinecraftRegistry.satisfiesEnvironment(upstream, environment));
+                    if(results.length > 0) return results[0];
+                }
+                catch {}
+
+                // Resolves query by slug
+                try {
+                    const slug = await registry.fetchIDFromSlug(lookup);
+                    const upstreams = await registry.fetchUpstreamsFromID(environment.minecraft, slug);
+                    const results = upstreams.filter((upstream) => MinecraftRegistry.satisfiesEnvironment(upstream, environment));
+                    if(results.length > 0) return results[0];
+                }
+                catch {}
+            }
+
+            // Resolves specific
+            else {
+                // Resolves query by ID
+                try {
+                    const upstream = await registry.fetchUpstreamFromTag(lookup, tagOverride);
+                    if(MinecraftRegistry.satisfiesEnvironment(upstream, environment)) return upstream;
+                }
+                catch {}
+
+                // Resolves query by slug
+                try {
+                    const slug = await registry.fetchIDFromSlug(lookup);
+                    const upstream = await registry.fetchUpstreamFromTag(slug, tagOverride);
+                    if(MinecraftRegistry.satisfiesEnvironment(upstream, environment)) return upstream;
+                }
+                catch {}
+            }
+        }
+        
+        // Throws error
+        throw new Error(error("RESOLVE_NO_UPSTREAM"));
     }
 
     /**

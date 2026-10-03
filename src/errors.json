@@ -11,5 +11,8 @@
     "RELINK_NO_SOURCE": "",
     "RELINK_NO_UPSTREAM": "",
     "SOURCE_NO_FILE": "Failed to fetch upstream string, source file may be null or empty.",
-    "SOURCE_NO_UPSTREAM": "Failed to fetch upstream string, no upstreams were found."
+    "SOURCE_NO_UPSTREAM": "Failed to fetch upstream string, no upstreams were found.",
+    "LOAD_BAD_UPSTREAM": "",
+    "RESOLVE_BAD_QUERY": "",
+    "RESOLVE_NO_UPSTREAM": ""
 }

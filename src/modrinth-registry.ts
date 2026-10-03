@@ -5,6 +5,9 @@ import { version as build } from "../package.json";
 
 /** Modrinth registry. */
 export class ModrinthRegistry extends MinecraftRegistry {
+    /** Modrinth registry. */
+    readonly type = MinecraftRegistryEnum.MODRINTH;
+
     /**
      * Creates base URL to API.
      * @param endpoint API endpoint.
@@ -100,7 +103,7 @@ export class ModrinthRegistry extends MinecraftRegistry {
             id: project.project_id,
             loaders: loaders,
             minecrafts: project.game_versions,
-            registry: MinecraftRegistryEnum.MODRINTH,
+            registry: this.type,
             tag: project.id,
             types: types,
             url: file.url
@@ -144,7 +147,7 @@ export class ModrinthRegistry extends MinecraftRegistry {
             id: project.project_id,
             loaders: loaders,
             minecrafts: project.game_versions,
-            registry: MinecraftRegistryEnum.MODRINTH,
+            registry: this.type,
             tag: project.id,
             types: types,
             url: file.url
@@ -192,7 +195,7 @@ export class ModrinthRegistry extends MinecraftRegistry {
                 id: project.project_id,
                 loaders: loaders,
                 minecrafts: project.game_versions,
-                registry: MinecraftRegistryEnum.MODRINTH,
+                registry: this.type,
                 tag: project.id,
                 types: types,
                 url: file.url

@@ -63,9 +63,23 @@ export enum MinecraftTypeEnum {
     /** Resourcepack addon. */
     RESOURCEPACK = "RESOURCEPACK",
     /** Shaderpack addon. */
-    SHADERPACK = "SHADERPACK",
-    /** Unknown addon. */
-    UNKNOWN = "UNKNOWN"
+    SHADERPACK = "SHADERPACK"
+}
+
+/** Minecraft Environment. */
+export interface MinecraftEnvironment {
+    /** Preferred datapack loader. */
+    datapackLoader: MinecraftLoaderEnum;
+    /** Preferred Minecraft version. */
+    minecraft: string;
+    /** Preferred mod loader. */
+    modLoader: MinecraftLoaderEnum;
+    /** Preferred plugin loader. */
+    pluginLoader: MinecraftLoaderEnum;
+    /** Preferred resourcepack loader. */
+    resourcepackLoader: MinecraftLoaderEnum;
+    /** Preferred shaderpack loader. */
+    shaderpackLoader: MinecraftLoaderEnum;
 }
 
 /** Minecraft upstream. */
@@ -168,10 +182,33 @@ export abstract class MinecraftRegistry {
         if(types.includes(MinecraftTypeEnum.RESOURCEPACK)) return MinecraftTypeEnum.RESOURCEPACK;
         if(types.includes(MinecraftTypeEnum.PLUGIN)) return MinecraftTypeEnum.PLUGIN;
         if(types.includes(MinecraftTypeEnum.DATAPACK)) return MinecraftTypeEnum.DATAPACK;
-        return MinecraftTypeEnum.UNKNOWN;
+        throw new Error(error("LOAD_BAD_UPSTREAM"));
+    }
+
+    /**
+     * Checks whether upstream string satisfies Minecraft environment.
+     * @param upstream Upstream string.
+     * @param environment Minecraft environment.
+     * @returns Whether upstream string satisfies Minecraft environment.
+     */
+    static satisfiesEnvironment(upstream: string, environment: MinecraftEnvironment): boolean {
+        // Checks Minecrafts
+        const { loaders, minecrafts } = MinecraftRegistry.loadUpstream(upstream);
+        if(!minecrafts.includes(environment.minecraft)) return false;
+
+        // Checks loaders
+        const type = MinecraftRegistry.loadUpstreamBestType(upstream);
+        switch(type) {
+            case MinecraftTypeEnum.DATAPACK: return loaders.includes(environment.datapackLoader);
+            case MinecraftTypeEnum.MOD: return loaders.includes(environment.modLoader);
+            case MinecraftTypeEnum.PLUGIN: return loaders.includes(environment.pluginLoader);
+            case MinecraftTypeEnum.RESOURCEPACK: return loaders.includes(environment.resourcepackLoader);
+            case MinecraftTypeEnum.SHADERPACK: return loaders.includes(environment.shaderpackLoader);
+        }
     }
 
     // Declares abstract methods
+    abstract readonly type: MinecraftRegistryEnum;
     abstract fetchIDFromSlug(slug: string): Promise<string>;
     abstract fetchUpstreamFromSource(source: Bun.BunFile): Promise<string>;
     abstract fetchUpstreamFromTag(id: string, tag: string): Promise<string>;
