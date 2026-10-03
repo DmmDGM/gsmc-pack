@@ -118,7 +118,7 @@ export abstract class MinecraftRegistry {
         if(!response.ok) throw new Error(error("DOWNLOAD_BAD_UPSTREAM"));
 
         // Creates download
-        const filename = decodeURI(response.url).split("/").pop()!;
+        const filename = decodeURIComponent(response.url).split("/").pop()!;
         const directory = await makeTemporaryDirectory(resolvePath(getTemporaryDirectory(), "gsmc-pack-"));
         const file = Bun.file(resolvePath(directory, filename));
         return new MinecraftDownload(file, directory, filename, hash, response);

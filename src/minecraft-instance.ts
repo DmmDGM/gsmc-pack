@@ -61,11 +61,52 @@ export class MinecraftInstance {
     }
 
     async addAddon(upstream: string, commit: boolean = false): Promise<MinecraftAddon> {
+        // Loads upstream
+        const { hash } = MinecraftRegistry.loadUpstream(upstream);
+        
+        // Writes pack
+        if(commit) {
+            const pack = await this.readPackJSON();
+            pack.addons[hash] = upstream;
+            await this.writePackJSON(pack);
+        }
 
+        // Returns linked
+        const files = await this.listFiles();
+        for(const file of files) {
+            const fileHash = Bun.CryptoHasher.hash("sha1", await file.arrayBuffer()).toHex();
+            if(hash === fileHash) return new MinecraftAddon(this, file, upstream);
+        }
+
+        // Returns unlinked
+        return new MinecraftAddon(this, null, upstream);
+    }
+
+    async *deleteUnlinked(commit: boolean = false) {
+        
     }
 
     async removeAddon(hash: string, commit: boolean = false): Promise<MinecraftAddon> {
+        // Finds upstream
+        const pack = await this.readPackJSON();
+        if(hash in pack.addons === false) throw new Error("REMOVE_NO_ADDON");
+        const upstream = pack.addons[hash];
 
+        // Writes pack
+        if(commit) {
+            if(hash in pack.addons) delete pack.addons[hash];
+            await this.writePackJSON(pack);
+        }
+
+        // Returns linked
+        const files = await this.listFiles();
+        for(const file of files) {
+            const fileHash = Bun.CryptoHasher.hash("sha1", await file.arrayBuffer()).toHex();
+            if(hash === fileHash) return new MinecraftAddon(this, file, upstream);
+        }
+
+        // Returns unlinked
+        return new MinecraftAddon(this, null, upstream);
     }
 
     async updateAddon(hash: string, upstream: string, commit: boolean = false): Promise<MinecraftAddon> {
@@ -197,6 +238,11 @@ export class MinecraftInstance {
         for(const addon of unlinked) yield addon.relinkUpstream(commit);
     }
 
+    /**
+     * Resolves upstream string from upstream query.
+     * @param query Upstream query.
+     * @returns Upstream string.
+     */
     async resolveQuery(query: string): Promise<string> {
         // Parses query
         const match = query.match(/^(?:([^:@#=]+):)?([^:@#=]+)(?:@([^:@#=]+))?(?:#([^:@#=]+))?(?:=([^:@#=]+))?$/);
