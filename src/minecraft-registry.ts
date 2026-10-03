@@ -1,10 +1,7 @@
-// Imports
-import { error } from "./common/error";
-
 /** Supported addon loaders in GSMC-Pack. */
 export enum MinecraftLoaderEnum {
     // Datapacks
-    /** Built-In datapack loader. */
+    /** Built-in datapack loader. */
     DATAPACK = "DATAPACK",
 
     // Mods
@@ -59,20 +56,30 @@ export enum MinecraftTypeEnum {
     /** Resourcepack addon. */
     RESOURCEPACK = "RESOURCEPACK",
     /** Shaderpack addon. */
-    SHADERPACK = "SHADERPACK"
+    SHADERPACK = "SHADERPACK",
+    /** Unknown addon. */
+    UNKNOWN = "UNKNOWN"
 }
 
 /** Addon upstream. */
-export type MinecraftUpstream = [
-    registry: MinecraftRegistryEnum,
-    minecrafts: string[],
-    types: MinecraftTypeEnum[],
-    loaders: MinecraftLoaderEnum[],
-    id: string,
-    tag: string,
-    hash: string,
-    url: string
-];
+export interface MinecraftUpstream {
+    /** SHA-1 hash of addon. */
+    hash: string;
+    /** Unique registry ID. */
+    id: string;
+    /** Supported Minecraft loaders. */
+    loaders: MinecraftLoaderEnum[];
+    /** Supported Minecraft versions. */
+    minecrafts: string[];
+    /** Minecraft registry. */
+    registry: MinecraftRegistryEnum;
+    /** Unique registry tag. */
+    tag: string;
+    /** Supported Minecraft types. */
+    types: MinecraftTypeEnum[];
+    /** Download URL of addon. */
+    url: string;
+}
 
 /** Minecraft registry. */
 export abstract class MinecraftRegistry {
@@ -81,9 +88,25 @@ export abstract class MinecraftRegistry {
      * @param upstream Addon upstream.
      * @returns Addon upstream string.
      */
-    static dumpUpstream(...[ registry, _minecrafts, _types, _loaders, id, tag, hash, url ]: MinecraftUpstream): string {
+    static dumpUpstream({ hash, id, minecrafts, loaders, registry, tag, types, url }: MinecraftUpstream): string {
         // Creates upstream string
-        return [ registry, _minecrafts.join(";"), _types.join(";"), _loaders.join(";"), id, tag, hash, url ].join("::");
+        return [ registry, minecrafts.join(";"), types.join(";"), loaders.join(";"), id, tag, hash, url ].join("::");
+    }
+
+    /**
+     * Infers best upstream type from upstream string.
+     * @param upstream Addon upstream string.
+     * @returns Addon upstream type.
+     */
+    static inferBestUpstreamType(upstream: string): MinecraftTypeEnum {
+        // Parses type
+        const { types } = MinecraftRegistry.loadUpstream(upstream);
+        if(types.includes(MinecraftTypeEnum.MOD)) return MinecraftTypeEnum.MOD;
+        if(types.includes(MinecraftTypeEnum.SHADERPACK)) return MinecraftTypeEnum.SHADERPACK;
+        if(types.includes(MinecraftTypeEnum.RESOURCEPACK)) return MinecraftTypeEnum.RESOURCEPACK;
+        if(types.includes(MinecraftTypeEnum.PLUGIN)) return MinecraftTypeEnum.PLUGIN;
+        if(types.includes(MinecraftTypeEnum.DATAPACK)) return MinecraftTypeEnum.DATAPACK;
+        return MinecraftTypeEnum.UNKNOWN;
     }
 
     /**
@@ -94,23 +117,10 @@ export abstract class MinecraftRegistry {
     static loadUpstream(upstream: string): MinecraftUpstream {
         // Creates upstream
         const [ registry, _minecrafts, _types, _loaders, id, tag, hash, url ] = upstream.split("::");
-        return [ registry, _minecrafts.split(";"), _types.split(";"), _loaders.split(";"), id, tag, hash, url ] as MinecraftUpstream;
-    }
-
-    /**
-     * Parses most relevant type from upstream string.
-     * @param upstream Addon upstream string.
-     * @returns Addon upstream type.
-     */
-    static parseUpstreamType(upstream: string): MinecraftTypeEnum {
-        // Parses type
-        const types = MinecraftRegistry.loadUpstream(upstream)[2];
-        if(types.includes(MinecraftTypeEnum.MOD)) return MinecraftTypeEnum.MOD;
-        if(types.includes(MinecraftTypeEnum.SHADERPACK)) return MinecraftTypeEnum.SHADERPACK;
-        if(types.includes(MinecraftTypeEnum.RESOURCEPACK)) return MinecraftTypeEnum.RESOURCEPACK;
-        if(types.includes(MinecraftTypeEnum.PLUGIN)) return MinecraftTypeEnum.PLUGIN;
-        if(types.includes(MinecraftTypeEnum.DATAPACK)) return MinecraftTypeEnum.DATAPACK;
-        throw new Error(error("PARSE_BAD_UPSTREAM"));
+        const loaders = _loaders.split(";") as MinecraftLoaderEnum[];
+        const minecrafts = _minecrafts.split(";");
+        const types = _types.split(";") as MinecraftTypeEnum[];
+        return { hash, loaders, minecrafts, id, registry: registry as MinecraftRegistryEnum, tag, types, url };
     }
 
     // Declares abstract methods

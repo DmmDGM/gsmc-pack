@@ -8,7 +8,7 @@ import { MinecraftMod } from "./addon/minecraft-mod";
 import { MinecraftPlugin } from "./addon/minecraft-plugin";
 import { MinecraftResourcepack } from "./addon/minecraft-resourcepack";
 import { MinecraftShaderpack } from "./addon/minecraft-shaderpack";
-import { error } from "./common/error";
+import { MinecraftUnknown } from "./addon/minecraft-unknown";
 import { CurseForgeRegistry } from "./registry/curseforge-registry";
 import { ModrinthRegistry } from "./registry/modrinth-registry";
 
@@ -44,7 +44,7 @@ export interface PackJSON {
 /** Minecraft instance. */
 export class MinecraftInstance {
     /** Default or fallback GSMC-Pack JSON. */
-    static readonly DEFAULT_PACK_JSON: PackJSON = {
+    readonly defaultPackJSON: PackJSON = {
         addons: {},
         authors: [],
         description: "",
@@ -60,7 +60,7 @@ export class MinecraftInstance {
         version: ""
     };
     /** Supported addon registries in GSMC-Pack. */
-    static readonly registries: MinecraftRegistry[] = [
+    readonly registries: MinecraftRegistry[] = [
         new ModrinthRegistry(),
         new CurseForgeRegistry()
     ];
@@ -78,29 +78,20 @@ export class MinecraftInstance {
     }
 
     /**
-     * Casts addon to type by upstream.
+     * Creates addon by upstream.
      * @param file Source file of addon.
      * @param upstream Upstream string of addon.
-     * @returns Casted addon.
+     * @returns Created addon.
      */
-    castMinecraftAddon(file: Bun.BunFile | null, upstream: string): MinecraftAddon {
-        // Casts addon
-        switch(MinecraftRegistry.parseUpstreamType(upstream)) {
-            case MinecraftTypeEnum.DATAPACK: {
-                return new MinecraftDatapack(this, file, upstream);
-            }
-            case MinecraftTypeEnum.MOD: {
-                return new MinecraftMod(this, file, upstream);
-            }
-            case MinecraftTypeEnum.PLUGIN: {
-                return new MinecraftPlugin(this, file, upstream);
-            }
-            case MinecraftTypeEnum.RESOURCEPACK: {
-                return new MinecraftResourcepack(this, file, upstream);
-            }
-            case MinecraftTypeEnum.SHADERPACK: {
-                return new MinecraftShaderpack(this, file, upstream);
-            }
+    createMinecraftAddon(file: Bun.BunFile | null, upstream: string): MinecraftAddon {
+        // Infers addon
+        switch(MinecraftRegistry.inferBestUpstreamType(upstream)) {
+            case MinecraftTypeEnum.DATAPACK: return new MinecraftDatapack(this, file, upstream);
+            case MinecraftTypeEnum.MOD: return new MinecraftMod(this, file, upstream);
+            case MinecraftTypeEnum.PLUGIN: return new MinecraftPlugin(this, file, upstream);
+            case MinecraftTypeEnum.RESOURCEPACK: return new MinecraftResourcepack(this, file, upstream);
+            case MinecraftTypeEnum.SHADERPACK: return new MinecraftShaderpack(this, file, upstream);
+            case MinecraftTypeEnum.UNKNOWN: return new MinecraftUnknown(this, file, upstream);
         }
     }
 
@@ -109,26 +100,37 @@ export class MinecraftInstance {
      */
     async *downloadMissingAddons(): AsyncGenerator<MinecraftAddon, void, void> {
         // Downloads addons
-        const results = await this.scanLocalFiles();
-        const missing = results[2];
-        for(const addon of missing) {
-            yield new Promise<MinecraftAddon>(async (resolve, reject) => {
-                try {
-                    const download = await addon.downloadAddon();
-                    return resolve(download);
-                }
-                catch(error) {
-                    return reject(error);
-                }
-            });
+        const { missing } = await this.listLocalAddons();
+        for(const addon of missing) yield addon.downloadFileFromUpstream();
+    }
+
+    /**
+     * Gets list of local addons.
+     * @returns List of linked addons, list of unlinked addons, and list of missing addons.
+     */
+    async listLocalAddons(): Promise<{ linked: MinecraftAddon[]; missing: MinecraftAddon[]; unlinked: MinecraftUnknown[]; }> {
+        // Lists local addons
+        const pack = await this.readPackJSON();
+        const files = await this.listLocalFiles();
+        const hashes = new Set(Object.keys(pack.addons));
+        const linked: MinecraftAddon[] = [];
+        const unlinked: MinecraftUnknown[] = [];
+        for(const file of files) {
+            const hash = Bun.CryptoHasher.hash("sha1", await file.arrayBuffer()).toHex();
+            if(hashes.delete(hash) || hash in pack.addons) linked.push(this.createMinecraftAddon(file, pack.addons[hash]));
+            else unlinked.push(new MinecraftUnknown(this, file, null));
         }
+        const missing = Array.from(hashes).map((hash) => this.createMinecraftAddon(null, pack.addons[hash]));        
+        
+        // Returns results
+        return { linked, missing, unlinked };
     }
 
     /**
      * Gets list of local addon files.
      * @returns List of files.
      */
-    async getLocalFiles(): Promise<Bun.BunFile[]> {
+    async listLocalFiles(): Promise<Bun.BunFile[]> {
         // Creates files
         const files: Bun.BunFile[] = [];
 
@@ -192,67 +194,19 @@ export class MinecraftInstance {
      */
     async readPackJSON(): Promise<PackJSON> {
         // Reads pack file
-        try {
-            return await Bun.file(resolvePath(this.path, "gsmc-pack.json")).json() as PackJSON;
-        }
+        try { return await Bun.file(resolvePath(this.path, "gsmc-pack.json")).json() as PackJSON; }
 
         // Returns default
-        catch {
-            return structuredClone(MinecraftInstance.DEFAULT_PACK_JSON);
-        }
+        catch { return structuredClone(this.defaultPackJSON); }
     }
 
     /**
-     * Remaps all unlinked addons.
+     * Relinks all unlinked addons.
      */
-    async *remapUnlinkedFiles() : AsyncGenerator<string, void, void> {
-        // Maps files
-        const pack = await this.readPackJSON();
-        const results = await this.scanLocalFiles();
-        const unlinked = results[1];
-        for(const file of unlinked ) {
-            yield new Promise<string>(async (resolve, reject) => {
-                for(const registry of MinecraftInstance.registries) {
-                    try {
-                        const upstream = await registry.fetchUpstreamFromSource(file);
-                        const hash = Bun.CryptoHasher.hash("sha1", await file.arrayBuffer()).toHex();
-                        return resolve(pack.addons[hash] = upstream);
-                    }
-                    catch {}
-                }
-                return reject(error("REMAP_NO_UPSTREAM"));
-            });
-        }
-        
-        // Writes pack file
-        await this.writePackJSON(pack);
-    }
-
-    /**
-     * Scans local addon files.
-     * @returns List of linked files, list of unlinked files, and list of missing files.
-     */
-    async scanLocalFiles(): Promise<[ linked: MinecraftAddon[], unlinked: Bun.BunFile[], missing: MinecraftAddon[] ]> {
-        // Scans locals files
-        const pack = await this.readPackJSON();
-        const files = await this.getLocalFiles();
-        const hashes = new Set(Object.keys(pack.addons));
-        const linked: MinecraftAddon[] = [];
-        const unlinked: Bun.BunFile[] = [];
-        for(const file of files) {
-            const hash = Bun.CryptoHasher.hash("sha1", await file.arrayBuffer()).toHex();
-            if(hash in pack.addons) {
-                linked.push(this.castMinecraftAddon(file, pack.addons[hash]));
-                hashes.delete(hash);
-            }
-            else unlinked.push(file);
-        }
-
-        // Compiles missing addons
-        const missing = Array.from(hashes).map((hash) => this.castMinecraftAddon(null, pack.addons[hash]));        
-        
-        // Returns results
-        return [ linked, unlinked, missing ];
+    async *relinkUnlinkedFiles() : AsyncGenerator<string, void, void> {
+        // Relinks addons
+        const { unlinked } = await this.listLocalAddons();
+        for(const addon of unlinked) yield addon.relinkUpstreamFromSource();
     }
 
     /**

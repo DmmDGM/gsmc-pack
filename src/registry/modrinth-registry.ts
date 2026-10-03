@@ -1,7 +1,7 @@
 // Imports
 import { MinecraftLoaderEnum, MinecraftRegistry, MinecraftRegistryEnum, MinecraftTypeEnum } from "../minecraft-registry";
 import { error } from "../common/error";
-import { version as _version } from "../../package.json";
+import { version as build } from "../../package.json";
 
 /** Modrinth registry. */
 export class ModrinthRegistry extends MinecraftRegistry {
@@ -23,7 +23,7 @@ export class ModrinthRegistry extends MinecraftRegistry {
     async createGetRequest(url: URL): Promise<Response> {
         // Creates headers
         const headers = new Headers();
-        headers.append("user-agent", `DmmDGM/gsmc-pack/${_version} (dmmdgm@dmmdgm.dev)`);
+        headers.append("user-agent", `DmmDGM/gsmc-pack/${build} (dmmdgm@dmmdgm.dev)`);
 
         // Makes request
         for(let i = 0; i < 5; i++) {
@@ -95,16 +95,16 @@ export class ModrinthRegistry extends MinecraftRegistry {
         // Returns upstream string
         const file = project.files.find((file) => file.primary) || project.files[0];
         const [ types, loaders ] = this.inferUpstreamEnvironment(project.loaders);
-        return MinecraftRegistry.dumpUpstream(
-            MinecraftRegistryEnum.MODRINTH,
-            project.game_versions,
-            types,
-            loaders,
-            project.project_id,
-            project.id,
-            file.hashes.sha1,
-            file.url
-        );
+        return MinecraftRegistry.dumpUpstream({
+            hash: file.hashes.sha1,
+            id: project.project_id,
+            loaders: loaders,
+            minecrafts: project.game_versions,
+            registry: MinecraftRegistryEnum.MODRINTH,
+            tag: project.id,
+            types: types,
+            url: file.url
+        });
     }
 
     /**
@@ -139,20 +139,20 @@ export class ModrinthRegistry extends MinecraftRegistry {
         // Returns upstream string
         const file = project.files.find((file) => file.primary) || project.files[0];
         const [ types, loaders ] = this.inferUpstreamEnvironment(project.loaders);
-        return MinecraftRegistry.dumpUpstream(
-            MinecraftRegistryEnum.MODRINTH,
-            project.game_versions,
-            types,
-            loaders,
-            project.project_id,
-            project.id,
-            file.hashes.sha1,
-            file.url
-        );
+        return MinecraftRegistry.dumpUpstream({
+            hash: file.hashes.sha1,
+            id: project.project_id,
+            loaders: loaders,
+            minecrafts: project.game_versions,
+            registry: MinecraftRegistryEnum.MODRINTH,
+            tag: project.id,
+            types: types,
+            url: file.url
+        });
     }
 
     /**
-     * Fetches upstream strings from specific Minecraft version.
+     * Fetches upstream strings from specific ID.
      * @param minecraft Minecraft version.
      * @param id Addon ID.
      * @returns Addon upstream strings.
@@ -187,16 +187,16 @@ export class ModrinthRegistry extends MinecraftRegistry {
         return projects.sort((a, b) => +new Date(b.date_published) - +new Date(a.date_published)).map((project) => {
             const file = project.files.find((file) => file.primary) || project.files[0];
             const [ types, loaders ] = this.inferUpstreamEnvironment(project.loaders);
-            return MinecraftRegistry.dumpUpstream(
-                MinecraftRegistryEnum.MODRINTH,
-                project.game_versions,
-                types,
-                loaders,
-                project.project_id,
-                project.id,
-                file.hashes.sha1,
-                file.url
-            );
+            return MinecraftRegistry.dumpUpstream({
+                hash: file.hashes.sha1,
+                id: project.project_id,
+                loaders: loaders,
+                minecrafts: project.game_versions,
+                registry: MinecraftRegistryEnum.MODRINTH,
+                tag: project.id,
+                types: types,
+                url: file.url
+            });
         });
     }
 

@@ -12,4 +12,13 @@ export class MinecraftPlugin extends MinecraftAddon {
         // Returns directory
         return resolvePath(this.instance.path, "plugins");
     }
+
+    /**
+     * Fetches known upstream string.
+     * @returns Addon upstream string.
+     */
+    async fetchUpstreamFromSource(): Promise<string> {
+        // Returns upstream string
+        return this.upstream!;
+    }
 }

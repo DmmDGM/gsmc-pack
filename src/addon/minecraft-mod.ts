@@ -12,4 +12,13 @@ export class MinecraftMod extends MinecraftAddon {
         // Returns directory
         return resolvePath(this.instance.path, "mods");
     }
+
+    /**
+     * Fetches known upstream string.
+     * @returns Addon upstream string.
+     */
+    async fetchUpstreamFromSource(): Promise<string> {
+        // Returns upstream string
+        return this.upstream!;
+    }
 }

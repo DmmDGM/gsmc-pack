@@ -3,7 +3,7 @@ import fingerprinter from "@meza/curseforge-fingerprint";
 import { MinecraftLoaderEnum, MinecraftRegistry, MinecraftRegistryEnum, MinecraftTypeEnum } from "../minecraft-registry";
 import { readCurseForgeAPIKey } from "../common/config";
 import { error } from "../common/error";
-import { version as _version } from "../../package.json";
+import { version as build } from "../../package.json";
 
 /** CurseForge registry. */
 export class CurseForgeRegistry extends MinecraftRegistry {
@@ -25,7 +25,7 @@ export class CurseForgeRegistry extends MinecraftRegistry {
     async createGetRequest(url: URL): Promise<Response> {
         // Creates headers
         const headers = new Headers();
-        headers.append("user-agent", `DmmDGM/gsmc-pack/${_version} (dmmdgm@dmmdgm.dev)`);
+        headers.append("user-agent", `DmmDGM/gsmc-pack/${build} (dmmdgm@dmmdgm.dev)`);
         headers.append("accept", "application/json");
         headers.append("x-api-key", await readCurseForgeAPIKey());
 
@@ -52,7 +52,7 @@ export class CurseForgeRegistry extends MinecraftRegistry {
     async createPostRequest(url: URL, payload: unknown): Promise<Response> {
         // Creates headers
         const headers = new Headers();
-        headers.append("user-agent", `DmmDGM/gsmc-pack/${_version} (dmmdgm@dmmdgm.dev)`);
+        headers.append("user-agent", `DmmDGM/gsmc-pack/${build} (dmmdgm@dmmdgm.dev)`);
         headers.append("content-type", "application/json");
         headers.append("accept", "application/json");
         headers.append("x-api-key", await readCurseForgeAPIKey());
@@ -107,7 +107,7 @@ export class CurseForgeRegistry extends MinecraftRegistry {
     }
 
     /**
-     * Fetches upstream string from soruce file/
+     * Fetches upstream string from soruce file.
      * @param source Addon source file.
      * @returns Addon upstream string.
      */
@@ -148,16 +148,16 @@ export class CurseForgeRegistry extends MinecraftRegistry {
         const match = matches[0];
         const hash = match.file.hashes.find((hash) => hash.algo === 1)!;
         const [ types, loaders ] = this.inferUpstreamEnvironment(match.file.modules);
-        return MinecraftRegistry.dumpUpstream(
-            MinecraftRegistryEnum.CURSEFORGE,
-            match.file.gameVersions,
-            types,
-            loaders,
-            match.id.toString(),
-            match.file.id.toString(),
-            hash.value,
-            match.file.downloadUrl ?? `https://www.curseforge.com/api/v1/mods/${match.id}/files/${match.file.id}/download`
-        );
+        return MinecraftRegistry.dumpUpstream({
+            hash: hash.value,
+            id: match.id.toString(),
+            loaders: loaders,
+            minecrafts: match.file.gameVersions,
+            registry: MinecraftRegistryEnum.CURSEFORGE,
+            tag: match.file.id.toString(),
+            types: types,
+            url: match.file.downloadUrl ?? `https://www.curseforge.com/api/v1/mods/${match.id}/files/${match.file.id}/download`
+        });
     }
 
     /**
@@ -194,20 +194,20 @@ export class CurseForgeRegistry extends MinecraftRegistry {
         // Returns upstream string
         const hash = data.hashes.find((hash) => hash.algo === 1)!;
         const [ types, loaders ] = this.inferUpstreamEnvironment(data.modules);
-        return MinecraftRegistry.dumpUpstream(
-            MinecraftRegistryEnum.CURSEFORGE,
-            data.gameVersions,
-            types,
-            loaders,
-            data.modId.toString(),
-            data.id.toString(),
-            hash.value,
-            data.downloadUrl ?? `https://www.curseforge.com/api/v1/mods/${data.modId}/files/${data.id}/download`
-        );
+        return MinecraftRegistry.dumpUpstream({
+            hash: hash.value,
+            id: data.modId.toString(),
+            loaders: loaders,
+            minecrafts: data.gameVersions,
+            registry: MinecraftRegistryEnum.CURSEFORGE,
+            tag: data.id.toString(),
+            types: types,
+            url: data.downloadUrl ?? `https://www.curseforge.com/api/v1/mods/${data.modId}/files/${data.id}/download`
+        });
     }
 
     /**
-     * Fetches upstream strings from specific Minecraft version.
+     * Fetches upstream strings from specific ID.
      * @param minecraft Minecraft version.
      * @param id Addon ID.
      * @returns Addon upstream strings.
@@ -243,16 +243,16 @@ export class CurseForgeRegistry extends MinecraftRegistry {
         return data.map((entry) => {
             const hash = entry.hashes.find((hash) => hash.algo === 1)!;
             const [ types, loaders ] = this.inferUpstreamEnvironment(entry.modules);
-            return MinecraftRegistry.dumpUpstream(
-                MinecraftRegistryEnum.CURSEFORGE,
-                entry.gameVersions,
-                types,
-                loaders,
-                entry.modId.toString(),
-                entry.id.toString(),
-                hash.value,
-                entry.downloadUrl ?? `https://www.curseforge.com/api/v1/mods/${entry.modId}/files/${entry.id}/download`
-            );
+            return MinecraftRegistry.dumpUpstream({
+                hash: hash.value,
+                id: entry.modId.toString(),
+                loaders: loaders,
+                minecrafts: entry.gameVersions,
+                registry: MinecraftRegistryEnum.CURSEFORGE,
+                types: types,
+                tag: entry.id.toString(),
+                url: entry.downloadUrl ?? `https://www.curseforge.com/api/v1/mods/${entry.modId}/files/${entry.id}/download`
+            });
         });
     }
 

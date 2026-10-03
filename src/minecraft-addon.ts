@@ -32,12 +32,10 @@ export abstract class MinecraftAddon {
      * Downloads addon.
      * @returns Downloaded addon.
      */
-    async downloadAddon(): Promise<MinecraftAddon> {
-        // Parses hash and URL
+    async downloadFileFromUpstream(): Promise<MinecraftAddon> {
+        // Loads hash and URL
         if(this.upstream === null) throw new Error(error("DOWNLOAD_NO_UPSTREAM"));
-        const upstream = MinecraftRegistry.loadUpstream(this.upstream);
-        const hash = upstream[6];
-        const url = upstream[7];
+        const { hash, url } = MinecraftRegistry.loadUpstream(this.upstream);
 
         // Makes request
         const response = await fetch(url);
@@ -59,7 +57,7 @@ export abstract class MinecraftAddon {
             const directory = this.getDownloadDirectory();
             const file = Bun.file(resolvePath(directory, filename));
             await file.write(downloadFile);
-            return this.instance.castMinecraftAddon(file, this.upstream);
+            return this.instance.createMinecraftAddon(file, this.upstream);
         }
         finally {
             // Cleans up
@@ -68,26 +66,45 @@ export abstract class MinecraftAddon {
         }
     }
 
+
     /**
      * Estimates size of download file.
      * @returns Size of download file.
      */
-    async pingUpstream(): Promise<number> {
-        // Parses URL
-        if(this.upstream === null) throw new Error(error("PING_NO_UPSTREAM"));
-        const upstream = MinecraftRegistry.loadUpstream(this.upstream);
-        const url = upstream[7];
+    async estimateUpstreamDownloadSize(): Promise<number> {
+        // Loads URL
+        if(this.upstream === null) throw new Error(error("ESTIMATE_NO_UPSTREAM"));
+        const { url } = MinecraftRegistry.loadUpstream(this.upstream);
 
         // Makes request
         const response = await fetch(url, { method: "HEAD" });
-        if(!response.ok) throw new Error(error("PING_BAD_UPSTREAM"));
+        if(!response.ok) throw new Error(error("ESTIMATE_BAD_UPSTREAM"));
         
         // Parses size
         const size = Number(response.headers.get("content-length"));
-        if(isNaN(size)) throw new Error(error("PING_BAD_UPSTREAM"));
+        if(isNaN(size)) throw new Error(error("ESTIMATE_BAD_UPSTREAM"));
         return size;
     }
 
+    /**
+     * Relinks addon.
+     * @returns Addon upstream string.
+     */
+    async relinkUpstreamFromSource(): Promise<string> {
+        // Fetches upstream string
+        const upstream = await this.fetchUpstreamFromSource();
+        const { hash } = MinecraftRegistry.loadUpstream(upstream);
+        
+        // Updates pack JSON
+        const pack = await this.instance.readPackJSON();
+        pack.addons[hash] = upstream;
+        await this.instance.writePackJSON(pack);
+
+        // Returns upstream
+        return upstream;
+    }
+
     // Declares abstract methods
+    abstract fetchUpstreamFromSource(): Promise<string>;
     abstract getDownloadDirectory(): string;
 }
