@@ -72,6 +72,22 @@ export class MinecraftInstance {
         this.path = path;
     }
 
+    async addAddon(upstream: string, commit: boolean = false): Promise<MinecraftAddon> {
+
+    }
+
+    async removeAddon(hash: string, commit: boolean = false): Promise<MinecraftAddon> {
+
+    }
+
+    async updateAddon(hash: string, upstream: string, commit: boolean = false): Promise<MinecraftAddon> {
+
+    }
+
+    async *migrateEnvironment(environment: PackJSON["environment"], commit: boolean = false): AsyncGenerator<MinecraftAddon, void, void> {
+
+    }
+
     /**
      * Downloads missing addons.
      * @param commit Whether to modify instance.
@@ -191,6 +207,10 @@ export class MinecraftInstance {
         // Relinks addons
         const { unlinked } = await this.listAddons();
         for(const addon of unlinked) yield addon.relinkUpstream(commit);
+    }
+
+    async resolveQuery(query: string): Promise<string[]> {
+        "modrinth:fabric-api@latest#fabric=1.21.5"
     }
 
     /**

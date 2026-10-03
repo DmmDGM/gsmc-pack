@@ -1,4 +1,5 @@
 {
+    "DOWNLOAD_ALREADY_DISPOSED": "",
     "DOWNLOAD_BAD_UPSTREAM": "Failed to download file from upstream, upstream string may be invalid or corrupted.",
     "DOWNLOAD_NO_UPSTREAM": "Failed to download file from upstream, upstream string may be null or empty.",
     "ESTIMATE_BAD_UPSTREAM": "Failed to estimate upstream download size, upstream string may be invalid or corrupted.",
