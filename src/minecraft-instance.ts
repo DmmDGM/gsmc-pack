@@ -1,26 +1,22 @@
 // Imports
+import type { MinecraftDownload } from "./minecraft-download";
 import { readdir as readDirectory } from "node:fs/promises";
 import { resolve as resolvePath } from "node:path";
+import { cwd as getCurrentDirectory } from "node:process";
+import { CurseForgeRegistry } from "./curseforge-registry";
 import { MinecraftAddon } from "./minecraft-addon";
-import { MinecraftLoaderEnum, MinecraftRegistry, MinecraftTypeEnum } from "./minecraft-registry";
-import { MinecraftDatapack } from "./addon/minecraft-datapack";
-import { MinecraftMod } from "./addon/minecraft-mod";
-import { MinecraftPlugin } from "./addon/minecraft-plugin";
-import { MinecraftResourcepack } from "./addon/minecraft-resourcepack";
-import { MinecraftShaderpack } from "./addon/minecraft-shaderpack";
-import { MinecraftUnknown } from "./addon/minecraft-unknown";
-import { CurseForgeRegistry } from "./registry/curseforge-registry";
-import { ModrinthRegistry } from "./registry/modrinth-registry";
+import { MinecraftLoaderEnum, MinecraftRegistry } from "./minecraft-registry";
+import { ModrinthRegistry } from "./modrinth-registry";
 
 /** GSMC-Pack JSON file. */
 export interface PackJSON {
-    /** List of addons. */
+    /** Pack addons. */
     addons: { [ Hash in string ]: string; };
-    /** Authors of this pack. */
+    /** Pack authors. */
     authors: string[];
-    /** Description about this pack. */
+    /** Pack description. */
     description: string;
-    /** Preferred environment of this pack. */
+    /** Preferred environment. */
     environment: {
         /** Preferred datapack loader. */
         datapackLoader: MinecraftLoaderEnum;
@@ -35,9 +31,9 @@ export interface PackJSON {
         /** Preferred shaderpack loader. */
         shaderpackLoader: MinecraftLoaderEnum;
     };
-    /** Name of this pack. */
+    /** Pack name. */
     name: string;
-    /** Version of this pack. */
+    /** Pack version. */
     version: string;
 }
 
@@ -59,86 +55,69 @@ export class MinecraftInstance {
         name: "",
         version: ""
     };
-    /** Supported addon registries in GSMC-Pack. */
+    /** Instance path. */
+    readonly path: string;
+    /** Supported Minecraft registries. */
     readonly registries: MinecraftRegistry[] = [
         new ModrinthRegistry(),
         new CurseForgeRegistry()
     ];
 
-    /** Path to instance. */
-    readonly path: string;
-
     /**
      * Creates new Minecraft instance.
-     * @param path Path to instance.
+     * @param path Instance path.
      */
-    constructor(path: string) {
+    constructor(path: string = getCurrentDirectory()) {
         // Inits fields
         this.path = path;
     }
 
     /**
-     * Creates addon by upstream.
-     * @param file Source file of addon.
-     * @param upstream Upstream string of addon.
-     * @returns Created addon.
+     * Downloads missing addons.
+     * @param commit Whether to modify instance.
      */
-    createMinecraftAddon(file: Bun.BunFile | null, upstream: string): MinecraftAddon {
-        // Infers addon
-        switch(MinecraftRegistry.inferBestUpstreamType(upstream)) {
-            case MinecraftTypeEnum.DATAPACK: return new MinecraftDatapack(this, file, upstream);
-            case MinecraftTypeEnum.MOD: return new MinecraftMod(this, file, upstream);
-            case MinecraftTypeEnum.PLUGIN: return new MinecraftPlugin(this, file, upstream);
-            case MinecraftTypeEnum.RESOURCEPACK: return new MinecraftResourcepack(this, file, upstream);
-            case MinecraftTypeEnum.SHADERPACK: return new MinecraftShaderpack(this, file, upstream);
-            case MinecraftTypeEnum.UNKNOWN: return new MinecraftUnknown(this, file, upstream);
-        }
-    }
-
-    /**
-     * Downloads all missing addons.
-     */
-    async *downloadMissingAddons(): AsyncGenerator<MinecraftAddon, void, void> {
+    async *downloadMissing(commit: boolean = false): AsyncGenerator<[ MinecraftDownload, Promise<MinecraftAddon> ], void, void> {
         // Downloads addons
-        const { missing } = await this.listLocalAddons();
-        for(const addon of missing) yield addon.downloadFileFromUpstream();
+        const { missing } = await this.listAddons();
+        for(const addon of missing) yield addon.downloadSource(commit);
     }
 
     /**
-     * Gets list of local addons.
+     * Lists addons in instance..
      * @returns List of linked addons, list of unlinked addons, and list of missing addons.
      */
-    async listLocalAddons(): Promise<{ linked: MinecraftAddon[]; missing: MinecraftAddon[]; unlinked: MinecraftUnknown[]; }> {
+    async listAddons(): Promise<{ linked: MinecraftAddon[]; missing: MinecraftAddon[]; unlinked: MinecraftAddon[]; }> {
         // Lists local addons
         const pack = await this.readPackJSON();
-        const files = await this.listLocalFiles();
+        const files = await this.listFiles();
         const hashes = new Set(Object.keys(pack.addons));
         const linked: MinecraftAddon[] = [];
-        const unlinked: MinecraftUnknown[] = [];
+        const unlinked: MinecraftAddon[] = [];
         for(const file of files) {
             const hash = Bun.CryptoHasher.hash("sha1", await file.arrayBuffer()).toHex();
-            if(hashes.delete(hash) || hash in pack.addons) linked.push(this.createMinecraftAddon(file, pack.addons[hash]));
-            else unlinked.push(new MinecraftUnknown(this, file, null));
+            if(hashes.delete(hash) || hash in pack.addons) linked.push(new MinecraftAddon(this, file, pack.addons[hash]));
+            else unlinked.push(new MinecraftAddon(this, file, null));
         }
-        const missing = Array.from(hashes).map((hash) => this.createMinecraftAddon(null, pack.addons[hash]));        
+        const missing = Array.from(hashes).map((hash) => new MinecraftAddon(this, null, pack.addons[hash]));        
         
         // Returns results
         return { linked, missing, unlinked };
     }
 
     /**
-     * Gets list of local addon files.
+     * Lists files in instance.
      * @returns List of files.
      */
-    async listLocalFiles(): Promise<Bun.BunFile[]> {
+    async listFiles(): Promise<Bun.BunFile[]> {
         // Creates files
         const files: Bun.BunFile[] = [];
 
         // Includes datapack files
         try {
-            const datapacks = await readDirectory(resolvePath(this.path, "data"));
+            const directory = resolvePath(this.path, MinecraftAddon.getDatapacksSubdirectory());
+            const datapacks = await readDirectory(directory);
             for(const datapack of datapacks) {
-                const file = Bun.file(resolvePath(this.path, "data", datapack));
+                const file = Bun.file(resolvePath(directory, datapack));
                 if(file.type === "application/zip") files.push(file);
             }
         }
@@ -146,9 +125,10 @@ export class MinecraftInstance {
 
         // Includes mod files
         try {
-            const mods = await readDirectory(resolvePath(this.path, "mods"));
+            const directory = resolvePath(this.path, MinecraftAddon.getModsSubdirectory());
+            const mods = await readDirectory(directory);
             for(const mod of mods) {
-                const file = Bun.file(resolvePath(this.path, "mods", mod));
+                const file = Bun.file(resolvePath(directory, mod));
                 if(file.type === "application/java-archive") files.push(file);
             }
         }
@@ -156,9 +136,10 @@ export class MinecraftInstance {
 
         // Includes plugin files
         try {
-            const plugins = await readDirectory(resolvePath(this.path, "plugins"));
+            const directory = resolvePath(this.path, MinecraftAddon.getPluginsSubdirectory());
+            const plugins = await readDirectory(directory);
             for(const plugin of plugins) {
-                const file = Bun.file(resolvePath(this.path, "plugins", plugin));
+                const file = Bun.file(resolvePath(directory, plugin));
                 if(file.type === "application/java-archive") files.push(file);
             }
         }
@@ -166,9 +147,10 @@ export class MinecraftInstance {
 
         // Includes resourcepack files
         try {
-            const resourcepacks = await readDirectory(resolvePath(this.path, "resourcepacks"));
-            for(const resourcepack of resourcepacks) {
-                const file = Bun.file(resolvePath(this.path, "resourcepacks", resourcepack));
+            const directory = resolvePath(this.path, MinecraftAddon.getResourcepacksSubdirectory());
+            const resoucepacks = await readDirectory(directory);
+            for(const resourcepack of resoucepacks) {
+                const file = Bun.file(resolvePath(directory, resourcepack));
                 if(file.type === "application/zip") files.push(file);
             }
         }
@@ -176,9 +158,10 @@ export class MinecraftInstance {
 
         // Includes shaderpack files
         try {
-            const shaderpacks = await readDirectory(resolvePath(this.path, "shaderpacks"));
+            const directory = resolvePath(this.path, MinecraftAddon.getShaderpacksSubdirectory());
+            const shaderpacks = await readDirectory(directory);
             for(const shaderpack of shaderpacks) {
-                const file = Bun.file(resolvePath(this.path, "shaderpacks", shaderpack));
+                const file = Bun.file(resolvePath(directory, shaderpack));
                 if(file.type === "application/zip") files.push(file);
             }
         }
@@ -201,12 +184,13 @@ export class MinecraftInstance {
     }
 
     /**
-     * Relinks all unlinked addons.
+     * Relinks unlinked addons.
+     * @param commit Whether to modify instance.
      */
-    async *relinkUnlinkedFiles() : AsyncGenerator<string, void, void> {
+    async *relinkUnlinked(commit: boolean = false) : AsyncGenerator<[ string, MinecraftAddon ], void, void> {
         // Relinks addons
-        const { unlinked } = await this.listLocalAddons();
-        for(const addon of unlinked) yield addon.relinkUpstreamFromSource();
+        const { unlinked } = await this.listAddons();
+        for(const addon of unlinked) yield addon.relinkUpstream(commit);
     }
 
     /**

@@ -1,7 +1,7 @@
 // Imports
-import { MinecraftLoaderEnum, MinecraftRegistry, MinecraftRegistryEnum, MinecraftTypeEnum } from "../minecraft-registry";
-import { error } from "../common/error";
-import { version as build } from "../../package.json";
+import { error } from "./error";
+import { MinecraftLoaderEnum, MinecraftRegistry, MinecraftRegistryEnum, MinecraftTypeEnum } from "./minecraft-registry";
+import { version as build } from "../package.json";
 
 /** Modrinth registry. */
 export class ModrinthRegistry extends MinecraftRegistry {
@@ -40,9 +40,9 @@ export class ModrinthRegistry extends MinecraftRegistry {
     }
 
     /**
-     * Fetches ID from slug.
-     * @param slug Addon slug.
-     * @returns Addon ID.
+     * Fetches unique ID from unique slug.
+     * @param slug Unique slug.
+     * @returns Unique ID.
      */
     async fetchIDFromSlug(slug: string): Promise<string> {
         // Creates URL
@@ -63,8 +63,8 @@ export class ModrinthRegistry extends MinecraftRegistry {
     
     /**
      * Fetches upstream string from source file.
-     * @param source Addon source file.
-     * @returns Addon upstream string.
+     * @param source Source file.
+     * @returns Upstream string.
      */
     async fetchUpstreamFromSource(source: Bun.BunFile): Promise<string> {
         // Hashes source
@@ -108,10 +108,10 @@ export class ModrinthRegistry extends MinecraftRegistry {
     }
 
     /**
-     * Fetches upstream string from specific tag.
-     * @param id Addon ID.
-     * @param tag Addon tag.
-     * @returns Addon upstream string.
+     * Fetches upstream string from unique tag.
+     * @param id Unique ID.
+     * @param tag Unique tag.
+     * @returns Upstream string.
      */
     async fetchUpstreamFromTag(id: string, tag: string): Promise<string> {
         // Creates URL
@@ -152,10 +152,10 @@ export class ModrinthRegistry extends MinecraftRegistry {
     }
 
     /**
-     * Fetches upstream strings from specific ID.
+     * Fetches upstream strings from unique ID.
      * @param minecraft Minecraft version.
-     * @param id Addon ID.
-     * @returns Addon upstream strings.
+     * @param id Unique ID.
+     * @returns Upstream strings.
      */
     async fetchUpstreamsFromID(minecraft: string, id: string): Promise<string[]> {
         // Creates URL
@@ -202,8 +202,8 @@ export class ModrinthRegistry extends MinecraftRegistry {
 
     /**
      * Infers upstream environment from registry data.
-     * @param projectLoaders Project loaders according to Modrinth.
-     * @returns Addon upstream environment.
+     * @param projectLoaders Project loaders from Modrinth.
+     * @returns Upstream environment.
      */
     inferUpstreamEnvironment(projectLoaders: string[]): [ MinecraftTypeEnum[], MinecraftLoaderEnum[] ] {
         // Infers loaders

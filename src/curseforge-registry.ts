@@ -1,9 +1,9 @@
 // Imports
 import fingerprinter from "@meza/curseforge-fingerprint";
-import { MinecraftLoaderEnum, MinecraftRegistry, MinecraftRegistryEnum, MinecraftTypeEnum } from "../minecraft-registry";
-import { readCurseForgeAPIKey } from "../common/config";
-import { error } from "../common/error";
-import { version as build } from "../../package.json";
+import { readCurseForgeAPIKey } from "./config";
+import { error } from "./error";
+import { MinecraftLoaderEnum, MinecraftRegistry, MinecraftRegistryEnum, MinecraftTypeEnum } from "./minecraft-registry";
+import { version as build } from "../package.json";
 
 /** CurseForge registry. */
 export class CurseForgeRegistry extends MinecraftRegistry {
@@ -78,9 +78,9 @@ export class CurseForgeRegistry extends MinecraftRegistry {
     }
 
     /**
-     * Fetches ID from slug.
-     * @param slug Addon slug.
-     * @returns Addon ID.
+     * Fetches unique ID from unique slug.
+     * @param slug Unique slug.
+     * @returns Unique ID.
      */
     async fetchIDFromSlug(slug: string): Promise<string> {
         // Creates URL
@@ -108,8 +108,8 @@ export class CurseForgeRegistry extends MinecraftRegistry {
 
     /**
      * Fetches upstream string from soruce file.
-     * @param source Addon source file.
-     * @returns Addon upstream string.
+     * @param source Source file.
+     * @returns Upstream string.
      */
     async fetchUpstreamFromSource(source: Bun.BunFile): Promise<string> {
         // Fingerprints source
@@ -161,10 +161,10 @@ export class CurseForgeRegistry extends MinecraftRegistry {
     }
 
     /**
-     * Fetches upstream string from specific tag.
-     * @param id Addon ID.
-     * @param tag Addon tag.
-     * @returns Addon upstream string.
+     * Fetches upstream string from unique tag.
+     * @param id Unique ID.
+     * @param tag Unique tag.
+     * @returns Upstream string.
      */
     async fetchUpstreamFromTag(id: string, tag: string): Promise<string> {
         // Creates URL
@@ -207,10 +207,10 @@ export class CurseForgeRegistry extends MinecraftRegistry {
     }
 
     /**
-     * Fetches upstream strings from specific ID.
+     * Fetches upstream strings from unique ID.
      * @param minecraft Minecraft version.
-     * @param id Addon ID.
-     * @returns Addon upstream strings.
+     * @param id Unique ID.
+     * @returns Upstream strings.
      */
     async fetchUpstreamsFromID(minecraft: string, id: string): Promise<string[]> {
         // Creates URL
@@ -258,8 +258,8 @@ export class CurseForgeRegistry extends MinecraftRegistry {
 
     /**
      * Infers upstream environment from registry data.
-     * @param metafiles Addon metafiles according to CurseForge.
-     * @returns Addon upstream environment.
+     * @param metafiles Addon metafiles from CurseForge.
+     * @returns Upstream environment.
      */
     inferUpstreamEnvironment(metafiles: { name: string; }[]): [ MinecraftTypeEnum[], MinecraftLoaderEnum[] ] {
         // Infers loaders
