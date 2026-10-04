@@ -75,9 +75,10 @@ export class MinecraftDownload {
      * Gets download progress.
      * @returns Download progress.
      */
-    getProgress(): number {
+    async getProgress(): Promise<number> {
         // Returns file size
-        return this.file.size;
+        try { return (await this.file.stat()).size; }
+        catch { return this.size; }
     }
 
     /**
