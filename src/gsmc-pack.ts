@@ -6,14 +6,14 @@ import { cwd as getCurrentDirectory } from "node:process";
 import { confirm } from "@inquirer/prompts";
 import byteSize from "byte-size";
 import chalk from "chalk";
+import ProgressBar from "progress";
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
-import { MinecraftInstance } from "./minecraft-instance";
-import { MinecraftRegistry, MinecraftTypeEnum } from "./minecraft-registry";
 import { wrapWithIndent } from "./format";
 import { MinecraftAddon } from "./minecraft-addon";
-import { ModrinthRegistry } from "./modrinth-registry";
-import ProgressBar from "progress";
+import { MinecraftDownload } from "./minecraft-download";
+import { MinecraftInstance } from "./minecraft-instance";
+import { MinecraftRegistry, MinecraftTypeEnum } from "./minecraft-registry";
 
 // Creates instance
 const instance = new MinecraftInstance(getCurrentDirectory());
@@ -45,7 +45,7 @@ export async function displayAddonDetails(addon: MinecraftAddon, detailed: boole
             console.log(wrapWithIndent(`${_type} ${_hash} ${_name} => ${_path} ${_compatible}`, 160, 0));
         }
     }
-    if(addon.source !== null) {
+    else if(addon.source !== null) {
         const hash = Bun.CryptoHasher.hash("sha1", await addon.source.arrayBuffer()).toHex();
         const metadata = await addon.readMetadata();
         const _type = chalk.bold.gray("[unknown]");
@@ -74,7 +74,7 @@ export async function displayAddonDetails(addon: MinecraftAddon, detailed: boole
     
     // Prints upstream
     if(addon.upstream !== null) {
-        const { id, loaders, minecrafts, registry, tag } = ModrinthRegistry.loadUpstream(addon.upstream);
+        const { id, loaders, minecrafts, registry, tag } = MinecraftRegistry.loadUpstream(addon.upstream);
         const type = MinecraftRegistry.loadUpstreamBestType(addon.upstream, pack.environment);
         const _minecrafts = chalk.red(chalk.bold("Minecrafts: ") + minecrafts.map((minecraft) => {
             return minecraft === pack.environment.minecraft ? chalk.inverse(minecraft) : minecraft;
@@ -97,23 +97,18 @@ export async function displayAddonDetails(addon: MinecraftAddon, detailed: boole
 }
 
 /**
- * Doadloads addon with pretty progress bar.
+ * Downloads addon with pretty progress bar.
  * @param upstream Upstring string.
  * @param title Download title.
  * @returns Downloaded Minecraft addon.
  */
-export async function downloadAddonPretty(upstream: string, title: string): Promise<MinecraftAddon> {
+export async function downloadAddonProgress(download: MinecraftDownload, title: string): Promise<void> {
     // Creates download
-    const addon = new MinecraftAddon(instance, null, upstream);
-    const [ download, results ] = await addon.downloadSource(true);
     const progress = new ProgressBar(`${title} [:bar] :percent (:elapseds)`, { complete: "#", incomplete: "-", total: download.size, width: 160 });
-    return new Promise<MinecraftAddon>(async (resolve) => {
+    return new Promise<void>(async (resolve) => {
         const interval = setInterval(async () => {
             progress.update(await download.getProgress() / download.size);
-            if(progress.complete) {
-                clearInterval(interval);
-                return resolve(await results);
-            }
+            if(progress.complete) return resolve(clearInterval(interval));
         }, 50);
     });
 }
@@ -133,19 +128,17 @@ const cli = yargs(argv)
             // Resolves queries
             const pack = await instance.readPackJSON();
             const queries: string[] = [];
-            const upstreams: { [ Query in string ]: string } = {};
-            let size = 0;
+            const upstreams: { [ Query in string ]: string; } = {};
+            const sizes: { [ Query in string ]: number; } = {};
             for(const query of subyargs.queries) {
                 try {
                     if(query in upstreams) continue;
                     const upstream = await instance.resolveQuery(query);
-                    const { hash, id, registry, tag } = ModrinthRegistry.loadUpstream(upstream);
-                    if(hash in pack.addons) console.log(`Addon ${chalk.bold.yellow(query)} => ${chalk.magenta(`${registry}:${id}@${tag}`)} already exists, reinstalling...`);
                     queries.push(query);
                     upstreams[query] = upstream;
-                    if(!subyargs["skip"]) size += await ModrinthRegistry.estimateSource(upstream);
+                    if(!subyargs["skip"]) sizes[query] = await MinecraftRegistry.estimateSource(upstream);
                 }
-                catch { console.log(chalk.bold.red(`ERROR: Search query '${query}' is not found!`)) }
+                catch { console.error(chalk.bold.red(`ERROR: Search query '${query}' is not found!`)) }
             }
 
             // Prints confirmation
@@ -154,14 +147,21 @@ const cli = yargs(argv)
                 console.log(chalk.bold.cyanBright(`=== '${instance.path}' => Adding ${queries.length}/${subyargs.queries.length} Addon(s) ===`));
                 console.log(chalk.bold(`You are about to add the following addon(s) to 'gsmc-pack.json':`));
                 console.log(wrapWithIndent(queries.map((query, index) => {
-                    const { id, registry, tag } = MinecraftRegistry.loadUpstream(upstreams[query]);
-                    return `[${index + 1}] ${chalk.bold.yellow(query)} => ${chalk.magenta(`${registry}:${id}@${tag}`)}`;
+                    const { hash, id, registry, tag } = MinecraftRegistry.loadUpstream(upstreams[query]);
+                    const _index = chalk.bold.green(`[${index + 1}]`);
+                    const _query = chalk.bold.yellow(query);
+                    const _registry = chalk.magenta(`${registry}:${id}@${tag}`);
+                    if(subyargs["skip"]) return `${_index} ${_query} => ${_registry}`;
+                    const _size = chalk.bold(`[${byteSize(sizes[query], { precision: 2, units: "iec" })}]`);
+                    const _reinstall = hash in pack.addons ? chalk.gray("(reinstall)") : chalk.bold("(new)");
+                    return `${_index} ${_query} => ${_registry} ${_size} ${_reinstall}`;
                 }).join(", "), 160, 1));
                 console.log("");
 
                 // Prints size
                 if(!subyargs["skip"]) {
-                    console.log(chalk.bold(`The total download will use ${byteSize(size, { precision: 2, units: "iec" })} of space on your device.`));
+                    const total = Object.values(sizes).reduce((total, size) => total + size, 0);
+                    console.log(chalk.bold(`The total download is ${byteSize(total, { precision: 2, units: "iec" })}.`));
                     console.log("");
                 }
 
@@ -172,16 +172,27 @@ const cli = yargs(argv)
 
             // Downloads addons
             const digits = queries.length.toString().length;
-            for(const index in queries) {
+            let complete = 0;
+            for(let index = 0; index < queries.length; index++) {
                 const query = queries[index];
                 const upstream = upstreams[query];
                 const { id, registry, tag } = MinecraftRegistry.loadUpstream(upstream);
-                const title = `[${(+index + 1).toString().padStart(digits, " ")}/${queries.length}] ${chalk.bold.yellow(query)} => ${chalk.magenta(`${registry}:${id}@${tag}`)}`;
-                await instance.addUpstream(upstream, true);
-                if(!subyargs["skip"]) await downloadAddonPretty(upstream, title);
-                else console.log(title);
+                const _index = chalk.bold.green(`[${(index + 1).toString().padStart(digits, " ")}/${queries.length}]`);
+                const _query = chalk.bold.yellow(query);
+                const _registry = chalk.magenta(`${registry}:${id}@${tag}`);
+                try {
+                    await instance.addUpstream(upstream, true);
+                    const [ download ] = await new MinecraftAddon(instance, null, upstream).downloadSource(true);
+                    if(!subyargs["skip"]) await downloadAddonProgress(download, `${_index} ${_query} => ${_registry}`);
+                    else console.log(`${_index} ${_query} => ${_registry} (okay)`);
+                    complete++;
+                }
+                catch { console.error(chalk.bold.red(`ERROR: Failed to add ${_index} ${_query} => ${_registry}.`)); }
             }
-            console.log(`Successfully added ${queries.length} addon(s).`);
+            console.log("");
+
+            // Prints receipt
+            console.log(chalk.bold.cyanBright(`Successfully added ${complete}/${queries.length} addon(s).`));
             console.log("");
         }
     )
@@ -204,11 +215,11 @@ const cli = yargs(argv)
             .conflicts("unlinked", [ "linked", "missing" ]),
         async (subyargs) => {
             // Concatenates addons
+            const pack = await instance.readPackJSON();
             const addons = await instance.listAddons();
             const total = addons.linked.length + addons.missing.length + addons.unlinked.length;
 
             // Filters addons
-            const pack = await instance.readPackJSON();
             let list: MinecraftAddon[] = [];
             if(subyargs["linked"]) list.push(...addons.linked);
             else if(subyargs["missing"]) list.push(...addons.missing);
