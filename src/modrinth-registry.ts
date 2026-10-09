@@ -9,16 +9,6 @@ export class ModrinthRegistry extends MinecraftRegistry {
     readonly type = MinecraftRegistryEnum.MODRINTH;
 
     /**
-     * Creates base URL to API.
-     * @param endpoint API endpoint.
-     * @returns URL object.
-     */
-    createBaseURL(endpoint: string): URL {
-        // Creates URL
-        return new URL("https://api.modrinth.com/v2" + endpoint);
-    }
-
-    /**
      * Creates GET request to API.
      * @param url URL object.
      * @returns API response.
@@ -49,7 +39,7 @@ export class ModrinthRegistry extends MinecraftRegistry {
      */
     async fetchIDFromSlug(slug: string): Promise<string> {
         // Creates URL
-        const url = this.createBaseURL(`/project/${slug}/check`);
+        const url = new URL(`https://api.modrinth.com/v2/project/${slug}/check`);
 
         // Makes request
         const response = await this.createGetRequest(url);
@@ -74,7 +64,7 @@ export class ModrinthRegistry extends MinecraftRegistry {
         const hash = Bun.CryptoHasher.hash("sha1", await source.arrayBuffer()).toHex();
 
         // Creates URL
-        const url = this.createBaseURL(`/version_file/${hash}`);
+        const url = new URL(`https://api.modrinth.com/v2/version_file/${hash}`);
 
         // Makes request
         const response = await this.createGetRequest(url);
@@ -97,7 +87,7 @@ export class ModrinthRegistry extends MinecraftRegistry {
 
         // Returns upstream string
         const file = project.files.find((file) => file.primary) || project.files[0];
-        const [ types, loaders ] = this.inferUpstreamEnvironment(project.loaders);
+        const { loaders, types } = this.inferUpstreamEnvironment(project.loaders);
         return MinecraftRegistry.dumpUpstream({
             hash: file.hashes.sha1,
             id: project.project_id,
@@ -118,7 +108,7 @@ export class ModrinthRegistry extends MinecraftRegistry {
      */
     async fetchUpstreamFromTag(id: string, tag: string): Promise<string> {
         // Creates URL
-        const url = this.createBaseURL(`/version/${tag}`);
+        const url = new URL(`https://api.modrinth.com/v2/version/${tag}`);
         
         // Makes request
         const response = await this.createGetRequest(url);
@@ -141,7 +131,7 @@ export class ModrinthRegistry extends MinecraftRegistry {
 
         // Returns upstream string
         const file = project.files.find((file) => file.primary) || project.files[0];
-        const [ types, loaders ] = this.inferUpstreamEnvironment(project.loaders);
+        const { loaders, types } = this.inferUpstreamEnvironment(project.loaders);
         return MinecraftRegistry.dumpUpstream({
             hash: file.hashes.sha1,
             id: project.project_id,
@@ -162,7 +152,7 @@ export class ModrinthRegistry extends MinecraftRegistry {
      */
     async fetchUpstreamsFromID(minecraft: string, id: string): Promise<string[]> {
         // Creates URL
-        const url = this.createBaseURL(`/project/${id}/version`);
+        const url = new URL(`https://api.modrinth.com/v2/project/${id}/version`);
         url.searchParams.append("game_versions", JSON.stringify([ minecraft ]));
         url.searchParams.append("include_changelog", JSON.stringify(false));
 
@@ -189,7 +179,7 @@ export class ModrinthRegistry extends MinecraftRegistry {
         // Returns upstream strings
         return projects.sort((a, b) => +new Date(b.date_published) - +new Date(a.date_published)).map((project) => {
             const file = project.files.find((file) => file.primary) || project.files[0];
-            const [ types, loaders ] = this.inferUpstreamEnvironment(project.loaders);
+            const { loaders, types } = this.inferUpstreamEnvironment(project.loaders);
             return MinecraftRegistry.dumpUpstream({
                 hash: file.hashes.sha1,
                 id: project.project_id,
@@ -208,7 +198,10 @@ export class ModrinthRegistry extends MinecraftRegistry {
      * @param projectLoaders Project loaders from Modrinth.
      * @returns Upstream environment.
      */
-    inferUpstreamEnvironment(projectLoaders: string[]): [ MinecraftTypeEnum[], MinecraftLoaderEnum[] ] {
+    inferUpstreamEnvironment(projectLoaders: string[]): {
+        loaders: MinecraftLoaderEnum[];
+        types: MinecraftTypeEnum[];
+    } {
         // Infers loaders
         const loaders: MinecraftLoaderEnum[] = [];
         if(projectLoaders.includes("bukkit")) loaders.push(MinecraftLoaderEnum.BUKKIT);
@@ -248,6 +241,6 @@ export class ModrinthRegistry extends MinecraftRegistry {
         ].includes(loader))) types.push(MinecraftTypeEnum.SHADERPACK);
 
         // Returns environment
-        return [ types, loaders ];
+        return { loaders, types };
     }
 }

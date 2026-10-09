@@ -11,16 +11,6 @@ export class CurseForgeRegistry extends MinecraftRegistry {
     readonly type = MinecraftRegistryEnum.CURSEFORGE;
 
     /**
-     * Creates base URL to API.
-     * @param endpoint API endpoint.
-     * @returns URL object.
-     */
-    createBaseURL(endpoint: string): URL {
-        // Creates URL
-        return new URL("https://api.curseforge.com/v1" + endpoint);
-    }
-
-    /**
      * Creates GET request to API.
      * @param url URL object.
      * @returns API response.
@@ -28,8 +18,8 @@ export class CurseForgeRegistry extends MinecraftRegistry {
     async createGetRequest(url: URL): Promise<Response> {
         // Creates headers
         const headers = new Headers();
-        headers.append("user-agent", `DmmDGM/gsmc-pack/${build} (dmmdgm@dmmdgm.dev)`);
         headers.append("accept", "application/json");
+        headers.append("user-agent", `DmmDGM/gsmc-pack/${build} (dmmdgm@dmmdgm.dev)`);
         headers.append("x-api-key", await readCurseForgeAPIKey());
 
         // Makes request
@@ -55,9 +45,9 @@ export class CurseForgeRegistry extends MinecraftRegistry {
     async createPostRequest(url: URL, payload: unknown): Promise<Response> {
         // Creates headers
         const headers = new Headers();
-        headers.append("user-agent", `DmmDGM/gsmc-pack/${build} (dmmdgm@dmmdgm.dev)`);
-        headers.append("content-type", "application/json");
         headers.append("accept", "application/json");
+        headers.append("content-type", "application/json");
+        headers.append("user-agent", `DmmDGM/gsmc-pack/${build} (dmmdgm@dmmdgm.dev)`);
         headers.append("x-api-key", await readCurseForgeAPIKey());
 
         // Creates body
@@ -87,7 +77,7 @@ export class CurseForgeRegistry extends MinecraftRegistry {
      */
     async fetchIDFromSlug(slug: string): Promise<string> {
         // Creates URL
-        const url = this.createBaseURL("/mods/search");
+        const url = new URL("https://api.curseforge.com/v1/mods/search");
         url.searchParams.append("gameId", JSON.stringify(432));
         url.searchParams.append("slug", slug);
 
@@ -119,7 +109,7 @@ export class CurseForgeRegistry extends MinecraftRegistry {
         const fingerprint = fingerprinter.fingerprint(source.name!);
         
         // Creates URL
-        const url = this.createBaseURL("/fingerprints");
+        const url = new URL("https://api.curseforge.com/v1/fingerprints");
 
         // Makes request
         const response = await this.createPostRequest(url, { fingerprints: [ fingerprint ]});
@@ -150,7 +140,7 @@ export class CurseForgeRegistry extends MinecraftRegistry {
         // Returns upstream string
         const match = matches[0];
         const hash = match.file.hashes.find((hash) => hash.algo === 1)!;
-        const [ types, loaders ] = this.inferUpstreamEnvironment(match.file.modules);
+        const { loaders, types } = this.inferUpstreamEnvironment(match.file.modules);
         return MinecraftRegistry.dumpUpstream({
             hash: hash.value,
             id: match.id.toString(),
@@ -171,7 +161,7 @@ export class CurseForgeRegistry extends MinecraftRegistry {
      */
     async fetchUpstreamFromTag(id: string, tag: string): Promise<string> {
         // Creates URL
-        const url = this.createBaseURL(`/mods/${id}/files/${tag}`);
+        const url = new URL(`https://api.curseforge.com/v1/mods/${id}/files/${tag}`);
 
         // Makes request
         const response = await this.createGetRequest(url);
@@ -196,7 +186,7 @@ export class CurseForgeRegistry extends MinecraftRegistry {
 
         // Returns upstream string
         const hash = data.hashes.find((hash) => hash.algo === 1)!;
-        const [ types, loaders ] = this.inferUpstreamEnvironment(data.modules);
+        const { loaders, types } = this.inferUpstreamEnvironment(data.modules);
         return MinecraftRegistry.dumpUpstream({
             hash: hash.value,
             id: data.modId.toString(),
@@ -217,7 +207,7 @@ export class CurseForgeRegistry extends MinecraftRegistry {
      */
     async fetchUpstreamsFromID(minecraft: string, id: string): Promise<string[]> {
         // Creates URL
-        const url = this.createBaseURL(`/mods/${id}/files`);
+        const url = new URL(`https://api.curseforge.com/v1/mods/${id}/files`);
         url.searchParams.append("gameVersion", minecraft);
 
         // Makes request
@@ -245,7 +235,7 @@ export class CurseForgeRegistry extends MinecraftRegistry {
         // Returns upstream strings
         return data.map((entry) => {
             const hash = entry.hashes.find((hash) => hash.algo === 1)!;
-            const [ types, loaders ] = this.inferUpstreamEnvironment(entry.modules);
+            const { loaders, types } = this.inferUpstreamEnvironment(entry.modules);
             return MinecraftRegistry.dumpUpstream({
                 hash: hash.value,
                 id: entry.modId.toString(),
@@ -264,7 +254,10 @@ export class CurseForgeRegistry extends MinecraftRegistry {
      * @param metafiles Addon metafiles from CurseForge.
      * @returns Upstream environment.
      */
-    inferUpstreamEnvironment(metafiles: { name: string; }[]): [ MinecraftTypeEnum[], MinecraftLoaderEnum[] ] {
+    inferUpstreamEnvironment(metafiles: { name: string; }[]): {
+        loaders: MinecraftLoaderEnum[];
+        types: MinecraftTypeEnum[];
+    } {
         // Infers loaders
         const loaders: MinecraftLoaderEnum[] = [];
         if(metafiles.some((metafile) => metafile.name === "fabric.mod.json")) loaders.push(MinecraftLoaderEnum.FABRIC);
@@ -305,6 +298,6 @@ export class CurseForgeRegistry extends MinecraftRegistry {
         ].includes(loader))) types.push(MinecraftTypeEnum.SHADERPACK);
         
         // Returns environment
-        return [ types, loaders ];
+        return { loaders, types };
     }
 }
