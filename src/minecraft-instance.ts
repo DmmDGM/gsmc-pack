@@ -7,7 +7,9 @@ import {
     error,
     GSMCPackJSON,
     MinecraftEnvironment,
-    MinecraftLoaderEnum
+    MinecraftLoaderEnum,
+    MinecraftQuery,
+    MinecraftRegistryEnum
 } from "./common";
 import MinecraftAddon from "./minecraft-addon";
 import MinecraftRegistry from "./minecraft-registry";
@@ -91,6 +93,30 @@ export default class MinecraftInstance {
 
         // Returns fallback
         catch { return structuredClone(DEFAULT_GSMCPACK_JSON); }
+    }
+
+    /**
+     * Parses upstream query.
+     * @param query Upstream query.
+     * @returns Minecraft query.
+     */
+    parseQuery(query: string): MinecraftQuery {
+        // Parses match
+        const match = query.match(/^(?:([^:@#=]+):)?([^:@#=]+)(?:@([^:@#=]+))?(?:#([^:@#=]+))?(?:=([^:@#=]+))?$/);
+        if(match === null) throw new Error(error("BAD_QUERY", { query }));
+
+        // Creates query
+        const [ _query, _registry, _lookup, _tag, _loader, _minecraft ] = match;
+        const hasRegistry = typeof _registry !== "undefined" && this.registries.some(({ registry }) => registry === _registry.toUpperCase());
+        const hasLoader = typeof _loader !== "undefined" && _loader.toUpperCase() in MinecraftLoaderEnum;
+        return {
+            loader: hasLoader ? _loader.toUpperCase() as MinecraftLoaderEnum : null,
+            lookup: _lookup ?? "",
+            minecraft: _minecraft ?? null,
+            query: _query,
+            registry: hasRegistry ? _registry.toUpperCase() as MinecraftRegistryEnum : null,
+            tag: _tag ?? "latest"
+        };
     }
 
     /**
@@ -207,39 +233,27 @@ export default class MinecraftInstance {
      */
     async resolveQuery(query: string): Promise<string> {
         // Parses query
-        const match = query.match(/^(?:([^:@#=]+):)?([^:@#=]+)(?:@([^:@#=]+))?(?:#([^:@#=]+))?(?:=([^:@#=]+))?$/);
-        if(match === null) throw new Error(error("BAD_QUERY", { query }));
-        const [ _, registryType, lookup, tagOverride, loaderOverride, minecraftOverride ] = match;
+        const override = this.parseQuery(query);
         
         // Loads environment
         const pack = await this.loadGSMCPackJSON();
         const environment: MinecraftEnvironment = {
-            "datapackLoader": typeof loaderOverride === "undefined" ?
-                pack.environment.datapackLoader :
-                loaderOverride.toUpperCase() as MinecraftLoaderEnum,
-            "minecraft": typeof minecraftOverride === "undefined" ?
-                pack.environment.minecraft :
-                minecraftOverride.toUpperCase(),
-            "resourcepackLoader": typeof loaderOverride === "undefined" ?
-                pack.environment.resourcepackLoader :
-                loaderOverride.toUpperCase() as MinecraftLoaderEnum,
-            "custompackLoader": typeof loaderOverride === "undefined" ?
-                pack.environment.custompackLoader :
-                loaderOverride.toUpperCase() as MinecraftLoaderEnum,
-            "shaderpackLoader": typeof loaderOverride === "undefined" ?
-                pack.environment.shaderpackLoader :
-                loaderOverride.toUpperCase() as MinecraftLoaderEnum,
+            "datapackLoader": override.loader === null ? pack.environment.datapackLoader : override.loader,
+            "minecraft": override.minecraft === null ? pack.environment.minecraft : override.minecraft,
+            "resourcepackLoader": override.loader === null ? pack.environment.resourcepackLoader : override.loader,
+            "custompackLoader": override.loader === null ? pack.environment.custompackLoader : override.loader,
+            "shaderpackLoader": override.loader === null ? pack.environment.shaderpackLoader : override.loader
         };
 
         // Resolves query
-        const registries = typeof registryType === "undefined" ? this.registries :
-            this.registries.filter((registry) => Object.is(registry.registry, registryType.toUpperCase()));
+        const registries = override.registry === null ? this.registries :
+            this.registries.filter(({ registry }) => registry === override.registry);
         for(const registry of registries) {
             // Resolves latest
-            if(typeof tagOverride === "undefined" || tagOverride === "latest") {
+            if(override.tag === "latest") {
                 // Resolves query by ID
                 try {
-                    const upstreams = await registry.fetchUpstreamsFromID(environment.minecraft, lookup);
+                    const upstreams = await registry.fetchUpstreamsFromID(environment.minecraft, override.lookup);
                     const results = upstreams.filter((upstream) => MinecraftRegistry.satisfiesEnvironment(upstream, environment));
                     if(results.length > 0) return results[0];
                 }
@@ -247,7 +261,7 @@ export default class MinecraftInstance {
 
                 // Resolves query by slug
                 try {
-                    const slug = await registry.fetchIDFromSlug(lookup);
+                    const slug = await registry.fetchIDFromSlug(override.lookup);
                     const upstreams = await registry.fetchUpstreamsFromID(environment.minecraft, slug);
                     const results = upstreams.filter((upstream) => MinecraftRegistry.satisfiesEnvironment(upstream, environment));
                     if(results.length > 0) return results[0];
@@ -259,16 +273,16 @@ export default class MinecraftInstance {
             else {
                 // Resolves query by ID
                 try {
-                    const upstream = await registry.fetchUpstreamFromTag(lookup, tagOverride);
-                    if(MinecraftRegistry.satisfiesEnvironment(upstream, environment)) return upstream;
+                    const upstream = await registry.fetchUpstreamFromTag(override.lookup, override.tag);
+                    return upstream;
                 }
                 catch {}
 
                 // Resolves query by slug
                 try {
-                    const slug = await registry.fetchIDFromSlug(lookup);
-                    const upstream = await registry.fetchUpstreamFromTag(slug, tagOverride);
-                    if(MinecraftRegistry.satisfiesEnvironment(upstream, environment)) return upstream;
+                    const slug = await registry.fetchIDFromSlug(override.lookup);
+                    const upstream = await registry.fetchUpstreamFromTag(slug, override.tag);
+                    return upstream;
                 }
                 catch {}
             }

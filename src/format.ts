@@ -5,8 +5,8 @@
  * @param indents Number of indents.
  * @returns Wrapped text.
  */
-export function wrapWithIndent(text: string, width: number, indents: number): string {
+export function wrapWithIndent(text: string, indents: number = 0, width: number = Infinity): string {
     // Wraps text
-    const wrapped = Bun.wrapAnsi(text, width - indents * 8, { wordWrap: true });
-    return wrapped.split("\n").map((line) => " ".repeat(indents * 8) + line).join("\n");
+    const wrapped = Bun.wrapAnsi(text, Math.min(process.stdout.columns - indents * 2, width), { hard: true, trim: false, wordWrap: true });
+    return wrapped.split("\n").map((line) => " ".repeat(indents * 2) + line).join("\n");
 }

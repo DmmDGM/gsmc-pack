@@ -6,6 +6,7 @@
         "adm-zip": "^0.6.0",
         "byte-size": "^9.0.1",
         "chalk": "^6.0.1",
+        "clipboardy": "^5.3.2",
         "progress": "^2.0.3",
         "yargs": "^18.2.0"
     },

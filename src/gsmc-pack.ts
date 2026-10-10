@@ -253,20 +253,21 @@
 
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
-import * as list from "./commands/list";
+import * as query from "./commands/query";
 
 const argv = hideBin(process.argv);
 const cli = yargs(argv)
-    .command(list);
+    .command(query);
 
 
 cli
     .scriptName("gsmc-pack")
-    .help().alias("h", "help")
-    .version().alias("v", "version")
+    .help().alias("h", "help").hide("h")
+    .version().alias("v", "version").hide("v")
     .strict().fail((message, error, subyargs) => {
         console.log(error);
         subyargs.showHelp("log");
         console.error(message);
     })
+    .wrap(null)
     .parse();

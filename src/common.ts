@@ -45,6 +45,8 @@ export enum MinecraftLoaderEnum {
 
 /** Supported Minecraft registries. */
 export enum MinecraftRegistryEnum {
+    /** Custom registry. */
+    CUSTOM = "CUSTOM",
     /** CurseForge registry. */
     CURSEFORGE = "CURSEFORGE",
     /** Modrinth registry. */
@@ -136,6 +138,22 @@ export interface MinecraftMetadata {
     name: string;
     /** Addon version. */
     version: string;
+}
+
+/** Minecraft query. */
+export interface MinecraftQuery {
+    /** Overridden Minecraft loader. */
+    loader: MinecraftLoaderEnum | null;
+    /** Registry lookup. */
+    lookup: string;
+    /** Overridden Minecraft version. */
+    minecraft: string | null;
+    /** Upstream query. */
+    query: string;
+    /** Overridden Minecraft registry. */
+    registry: MinecraftRegistryEnum | null;
+    /** Overridden registry tag. */
+    tag: string;
 }
 
 /** Minecraft upstream. */

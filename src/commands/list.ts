@@ -1,11 +1,13 @@
-import { InferredOptionTypes, Options } from "yargs";
+// Imports
+import type { InferredOptionTypes, Options } from "yargs";
 import chalk from "chalk";
 
-const command: string | string[] = [ "list", "ls" ];
-const describe: string = "test";
-const builder = {
-} as const satisfies Record<string, Options>;
+// Defines command
+export const command: string | string[] = [ "list", "ls" ];
+export const describe: string = "test";
+export const builder = {
 
-function handler(argv: InferredOptionTypes<typeof builder>) {
-    argv.okay
+} as const satisfies Record<string, Options>;
+export function handler(argv: InferredOptionTypes<typeof builder>) {
+    
 }
