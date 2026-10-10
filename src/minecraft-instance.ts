@@ -39,7 +39,7 @@ export default class MinecraftInstance {
      * @param upstream Upstring string.
      */
     async addUpstream(upstream: string): Promise<void> {
-        // Loads upstream
+        // Loads upstream string
         const { hash } = MinecraftRegistry.loadUpstream(upstream);
         
         // Updates pack
@@ -50,7 +50,7 @@ export default class MinecraftInstance {
 
     /**
      * Lists addons.
-     * @returns Instance addons.
+     * @returns Minecraft addons.
      */
     async listAddons(): Promise<MinecraftAddon[]> {
         // Lists addons
@@ -68,7 +68,7 @@ export default class MinecraftInstance {
 
     /**
      * List files.
-     * @returns Instance files.
+     * @returns Bun files.
      */
     async listFiles(): Promise<Bun.BunFile[]> {
         // List files
@@ -189,7 +189,7 @@ export default class MinecraftInstance {
     }
 
     /**
-     * Remove upstream string.
+     * Removes upstream string.
      * @param hash SHA-1 hash.
      */
     async removeUpstream(hash: string): Promise<void> {

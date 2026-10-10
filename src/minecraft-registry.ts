@@ -46,8 +46,7 @@ export default abstract class MinecraftRegistry {
 
             // Verifies hash
             const buffer = await Bun.file(resolvePath(directory, filename)).arrayBuffer();
-            const fileHash = Bun.CryptoHasher.hash("sha1", buffer).toHex();
-            if(hash !== fileHash) return reject(error("BAD_UPSTREAM", { upstream }));
+            if(hash !== Bun.CryptoHasher.hash("sha1", buffer).toHex()) return reject(error("BAD_UPSTREAM", { upstream }));
 
             // Resolves buffer
             return resolve(buffer);
@@ -96,7 +95,7 @@ export default abstract class MinecraftRegistry {
      * @returns Download size.
      */
     static async estimateSource(upstream: string): Promise<number> {
-        // Loads upstream
+        // Loads upstream string
         const { url } = MinecraftRegistry.loadUpstream(upstream);
 
         // Makes request
@@ -115,7 +114,7 @@ export default abstract class MinecraftRegistry {
      * @returns Upstream type.
      */
     static inferUpstreamType(upstream: string, environment: MinecraftEnvironment): MinecraftTypeEnum {
-        // Loads upstream
+        // Loads upstream string
         const { types } = MinecraftRegistry.loadUpstream(upstream);
         
         // Infers upstream type
@@ -157,7 +156,7 @@ export default abstract class MinecraftRegistry {
      * @returns Whether upstream string satisfies Minecraft environment.
      */
     static satisfiesEnvironment(upstream: string, environment: MinecraftEnvironment): boolean {
-        // Loads upstream
+        // Loads upstream string
         const { loaders, minecrafts } = MinecraftRegistry.loadUpstream(upstream);
         
         // Checks Minecrafts

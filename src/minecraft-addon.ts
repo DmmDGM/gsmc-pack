@@ -82,10 +82,10 @@ export default class MinecraftAddon {
      * Deletes source file.
      */
     async deleteSource(): Promise<void> {
-        // Checks filepath
+        // Checks source filepath
         if(this._filepath === null) throw new Error(error("NO_FILEPATH"));
 
-        // Deletes source
+        // Deletes source file
         await Bun.file(this._filepath).unlink();
 
         // Updates fields
@@ -93,12 +93,12 @@ export default class MinecraftAddon {
     }
 
     /**
-     * Downloads source file from migration.
+     * Downloads source file in new environment.
      * @param environment Migration environment.
-     * @returns 
+     * @returns Minecraft download.
      */
     async downloadMigration(environment: MinecraftEnvironment): Promise<MinecraftDownload> {
-        // Finds upstream
+        // Migrates source file
         const upstream = await this.migrateSource(environment);
         if(upstream === null) throw new Error(error("REGISTRY_NO_UPSTREAM"));
         
@@ -106,13 +106,12 @@ export default class MinecraftAddon {
         return await MinecraftRegistry.downloadSource(upstream);
     }
 
-
     /**
      * Downloads source file from upstream string.
      * @returns Minecraft download.
      */
     async downloadSource(): Promise<MinecraftDownload> {
-        // Checks upstream
+        // Checks upstream string
         if(this._upstream === null) throw new Error(error("NO_UPSTREAM"));
         
         // Downloads source file
@@ -120,11 +119,11 @@ export default class MinecraftAddon {
     }
 
     /**
-     * Downloads source file from upgrade.
+     * Downloads latest source file.
      * @returns Minecraft download.
      */
     async downloadUpgrade(): Promise<MinecraftDownload> {
-        // Finds upstream
+        // Upgrades source file
         const upstream = await this.upgradeSource();
         if(upstream === null) throw new Error(error("REGISTRY_NO_UPSTREAM"));
         
@@ -137,7 +136,7 @@ export default class MinecraftAddon {
      * @returns Download size.
      */
     async estimateSource(): Promise<number> {
-        // Checks upstream
+        // Checks upstream string
         if(this._upstream === null) throw new Error(error("NO_UPSTREAM"));
         
         // Estimates download size
@@ -146,7 +145,7 @@ export default class MinecraftAddon {
 
     /** Source filepath. */
     get filepath(): string | null {
-        // Returns filepath
+        // Returns source filepath
         return this._filepath;
     }
 
@@ -155,7 +154,7 @@ export default class MinecraftAddon {
      * @returns Addon directory.
      */
     async getDirectory(): Promise<string> {
-        // Reads pack
+        // Loads pack
         const pack = await this.instance.loadGSMCPackJSON();
 
         // Gets directory
@@ -171,69 +170,20 @@ export default class MinecraftAddon {
     }
 
     /**
-     * Fetches upstream string of migrated source file.
-     * @param environment Minecraft environment.
-     * @returns Upstream string of migrated source file.
-     */
-    async migrateSource(environment: MinecraftEnvironment): Promise<string | null> {
-        // Checks upstream
-        if(this._upstream === null) throw new Error(error("NO_UPSTREAM"));
-
-        // Checks environment
-        if(MinecraftRegistry.satisfiesEnvironment(this._upstream, environment)) return null;
-
-        // Searches migrations
-        const loaders = {
-            [ MinecraftTypeEnum.DATAPACK ]: environment.datapackLoader,
-            [ MinecraftTypeEnum.MOD ]: environment.custompackLoader,
-            [ MinecraftTypeEnum.PLUGIN ]: environment.custompackLoader,
-            [ MinecraftTypeEnum.RESOURCEPACK ]: environment.resourcepackLoader,
-            [ MinecraftTypeEnum.SHADERPACK ]: environment.shaderpackLoader
-        };
-        const { id } = MinecraftRegistry.loadUpstream(this._upstream);
-        const type = MinecraftRegistry.inferUpstreamType(this._upstream, environment);
-        const upstream = await this.instance.resolveQuery(`${id}@latest#${loaders[type]}=${environment.minecraft}`);
-        return upstream;
-    }
-
-    /**
-     * Fetches upstream string of latest source file.
-     * @returns Upstream string of latest source file.
-     */
-    async upgradeSource(): Promise<string | null> {
-        // Checks upstream
-        if(this._upstream === null) throw new Error(error("NO_UPSTREAM"));
-
-        // Searches upgrades
-        const { environment } = await this.instance.loadGSMCPackJSON();
-        const loaders = {
-            [ MinecraftTypeEnum.DATAPACK ]: environment.datapackLoader,
-            [ MinecraftTypeEnum.MOD ]: environment.custompackLoader,
-            [ MinecraftTypeEnum.PLUGIN ]: environment.custompackLoader,
-            [ MinecraftTypeEnum.RESOURCEPACK ]: environment.resourcepackLoader,
-            [ MinecraftTypeEnum.SHADERPACK ]: environment.shaderpackLoader
-        };
-        const { id } = MinecraftRegistry.loadUpstream(this._upstream);
-        const type = MinecraftRegistry.inferUpstreamType(this._upstream, environment);
-        const upstream = await this.instance.resolveQuery(`${id}@latest#${loaders[type]}=${environment.minecraft}`);
-        return upstream;
-    }
-
-    /**
-     * Installs download.
+     * Installs and replaces source file.
      * @param download Minecraft download.
      */
     async installSource(download: MinecraftDownload): Promise<void> {
         // Checks download
         if(download.disposed) throw new Error(error("BAD_DOWNLOAD"));
         
-        // Prevents overwrites
+        // Prevents overwrite
         const filepath = resolvePath(await this.getDirectory(), download.filename);
         if(this._filepath === filepath) throw new Error(error("OVERWRITE_DANGER", { filepath: this._filepath }));
         
-        // Installs download
+        // Installs source file
         try {
-            // Writes source
+            // Writes source file
             await Bun.write(filepath, await download.download);
 
             // Updates pack
@@ -256,11 +206,62 @@ export default class MinecraftAddon {
     }
 
     /**
+     * Maps source file.
+     */
+    async mapSource(): Promise<void> {
+        // Checks source filepath
+        if(this._filepath === null) throw new Error(error("NO_FILEPATH"));
+        
+        // Maps source
+        for(const registry of this.instance.registries) {
+            try {
+                // Fetches upstream string
+                const upstream = await registry.fetchUpstreamFromFilepath(this._filepath);
+                
+                // Updates pack
+                await this.instance.addUpstream(upstream);
+
+                // Updates fields
+                this._upstream = upstream;
+                break;
+            }
+            catch {}
+        }
+        throw new Error(error("REGISTRY_NO_UPSTREAM"));
+    }
+
+    /**
+     * Migrates source file.
+     * @param environment Minecraft environment.
+     * @returns New upstream string.
+     */
+    async migrateSource(environment: MinecraftEnvironment): Promise<string | null> {
+        // Checks upstream string
+        if(this._upstream === null) throw new Error(error("NO_UPSTREAM"));
+
+        // Checks environment
+        if(MinecraftRegistry.satisfiesEnvironment(this._upstream, environment)) return null;
+
+        // Fetches upstream string
+        const loaders = {
+            [ MinecraftTypeEnum.DATAPACK ]: environment.datapackLoader,
+            [ MinecraftTypeEnum.MOD ]: environment.custompackLoader,
+            [ MinecraftTypeEnum.PLUGIN ]: environment.custompackLoader,
+            [ MinecraftTypeEnum.RESOURCEPACK ]: environment.resourcepackLoader,
+            [ MinecraftTypeEnum.SHADERPACK ]: environment.shaderpackLoader
+        };
+        const { id } = MinecraftRegistry.loadUpstream(this._upstream);
+        const type = MinecraftRegistry.inferUpstreamType(this._upstream, environment);
+        const upstream = await this.instance.resolveQuery(`${id}@latest#${loaders[type]}=${environment.minecraft}`);
+        return upstream;
+    }
+
+    /**
      * Reads "fabric.mod.json" source metadata file.
      * @returns Minecraft metadata.
      */
     readFabricModJSON(): Promise<MinecraftMetadata> {
-        // Checks filepath
+        // Checks source filepath
         if(this._filepath === null) throw new Error(error("NO_FILEPATH"));
         
         // Reads source metadata file
@@ -296,7 +297,7 @@ export default class MinecraftAddon {
      * @returns Minecraft metadata.
      */
     readModsTOML(): Promise<MinecraftMetadata> {
-        // Checks filepath
+        // Checks source filepath
         if(this._filepath === null) throw new Error(error("NO_FILEPATH"));
         
         // Reads source metadata file
@@ -337,7 +338,7 @@ export default class MinecraftAddon {
      * @returns Minecraft metadata.
      */
     readNeoForgeModsTOML(): Promise<MinecraftMetadata> {
-        // Checks filepath
+        // Checks source filepath
         if(this._filepath === null) throw new Error(error("NO_FILEPATH"));
         
         // Reads source metadata file
@@ -378,7 +379,7 @@ export default class MinecraftAddon {
      * @returns Minecraft metadata.
      */
     readPackMCMETA(): Promise<MinecraftMetadata> {
-        // Checks filepath
+        // Checks souce filepath
         if(this._filepath === null) throw new Error(error("NO_FILEPATH"));
         
         // Reads source metadata file
@@ -416,7 +417,7 @@ export default class MinecraftAddon {
      * @returns Minecraft metadata.
      */
     readPaperPluginYML(): Promise<MinecraftMetadata> {
-        // Checks filepath
+        // Checks source filepath
         if(this._filepath === null) throw new Error(error("NO_FILEPATH"));
 
         // Reads source metadata file
@@ -451,7 +452,7 @@ export default class MinecraftAddon {
      * @returns Minecraft metadata.
      */
     readPluginYML(): Promise<MinecraftMetadata> {
-        // Checks filepath
+        // Checks source filepath
         if(this._filepath === null) throw new Error(error("NO_FILEPATH"));
         
         // Reads source metadata file
@@ -482,40 +483,14 @@ export default class MinecraftAddon {
     }
 
     /**
-     * Relinks upstream string.
-     * @returns Upstream string.
-     */
-    async relinkUpstream(): Promise<void> {
-        // Checks filepath
-        if(this._filepath === null) throw new Error(error("NO_FILEPATH"));
-        
-        // Relinks upstream string
-        for(const registry of this.instance.registries) {
-            try {
-                // Fetches upstream
-                const upstream = await registry.fetchUpstreamFromFilepath(this._filepath);
-                
-                // Updates pack
-                await this.instance.addUpstream(upstream);
-
-                // Updates fields
-                this._upstream = upstream;
-                break;
-            }
-            catch {}
-        }
-        throw new Error(error("REGISTRY_NO_UPSTREAM"));
-    }
-
-    /**
      * Reads source metadata file.
      * @returns Minecraft metadata.
      */
     async resolveMetadata(): Promise<MinecraftMetadata> {
-        // Checks filepath
+        // Checks source filepath
         if(this._filepath === null) throw new Error(error("NO_FILEPATH"));
         
-        // Reads source metadata file
+        // Resolves source metadata file
         try { return await this.readFabricModJSON(); } catch {}
         try { return await this.readModsTOML(); } catch {}
         try { return await this.readNeoForgeModsTOML(); } catch {}
@@ -525,6 +500,29 @@ export default class MinecraftAddon {
 
         // Returns fallback
         return { authors: [], code: "", description: "", name: getBasename(this._filepath), version: "" };
+    }
+
+    /**
+     * Fetches upstream string of latest source file.
+     * @returns Upstream string of latest source file.
+     */
+    async upgradeSource(): Promise<string | null> {
+        // Checks upstream string
+        if(this._upstream === null) throw new Error(error("NO_UPSTREAM"));
+
+        // Fetches upstream string
+        const { environment } = await this.instance.loadGSMCPackJSON();
+        const loaders = {
+            [ MinecraftTypeEnum.DATAPACK ]: environment.datapackLoader,
+            [ MinecraftTypeEnum.MOD ]: environment.custompackLoader,
+            [ MinecraftTypeEnum.PLUGIN ]: environment.custompackLoader,
+            [ MinecraftTypeEnum.RESOURCEPACK ]: environment.resourcepackLoader,
+            [ MinecraftTypeEnum.SHADERPACK ]: environment.shaderpackLoader
+        };
+        const { id } = MinecraftRegistry.loadUpstream(this._upstream);
+        const type = MinecraftRegistry.inferUpstreamType(this._upstream, environment);
+        const upstream = await this.instance.resolveQuery(`${id}@latest#${loaders[type]}=${environment.minecraft}`);
+        return upstream;
     }
 
     /** Upstream string. */
