@@ -63,6 +63,22 @@ export enum MinecraftTypeEnum {
     SHADERPACK = "SHADERPACK"
 }
 
+/** GSMC-Pack JSON. */
+export interface GSMCPackJSON {
+    /** Pack addons. */
+    addons: { [ Hash in string ]: string; };
+    /** Pack authors. */
+    authors: string[];
+    /** Pack description. */
+    description: string;
+    /** Preferred environment. */
+    environment: MinecraftEnvironment;
+    /** Pack name. */
+    name: string;
+    /** Pack version. */
+    version: string;
+}
+
 /** Minecraft download. */
 export interface MinecraftDownload {
     /** Download directory. */
@@ -86,6 +102,8 @@ export interface MinecraftDownload {
     readonly progress: () => Promise<number>;
     /** Download size. */
     readonly size: number;
+    /** Upstream string. */
+    readonly upstream: string;
     /** Download URL. */
     readonly url: string;
 }
@@ -137,6 +155,22 @@ export interface MinecraftUpstream {
     /** Download URL. */
     readonly url: string;
 }
+
+/** Default GSMC-Pack JSON. */
+export const DEFAULT_GSMCPACK_JSON: GSMCPackJSON = {
+    addons: {},
+    authors: [],
+    description: "",
+    environment: {
+        custompackLoader: MinecraftLoaderEnum.DATAPACK,
+        datapackLoader: MinecraftLoaderEnum.DATAPACK,
+        minecraft: "26.3",
+        resourcepackLoader: MinecraftLoaderEnum.RESOURCEPACK,
+        shaderpackLoader: MinecraftLoaderEnum.SHADERPACK
+    },
+    name: "",
+    version: ""
+};
 
 /** GSMC-Pack build version. */
 export const GSMCPACK_BUILD = version;

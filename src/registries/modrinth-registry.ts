@@ -61,13 +61,13 @@ export default class ModrinthRegistry extends MinecraftRegistry {
     }
     
     /**
-     * Fetches upstream string from source file.
-     * @param source Source file.
+     * Fetches upstream string from source filepath.
+     * @param source Source filepath.
      * @returns Upstream string.
      */
-    async fetchUpstreamFromSource(source: Bun.BunFile): Promise<string> {
+    async fetchUpstreamFromFilepath(filepath: string): Promise<string> {
         // Hashes source
-        const hash = Bun.CryptoHasher.hash("sha1", await source.arrayBuffer()).toHex();
+        const hash = Bun.CryptoHasher.hash("sha1", await Bun.file(filepath).arrayBuffer()).toHex();
 
         // Creates URL
         const url = new URL(`https://api.modrinth.com/v2/version_file/${hash}`);

@@ -106,13 +106,13 @@ export default class CurseForgeRegistry extends MinecraftRegistry {
     }
 
     /**
-     * Fetches upstream string from soruce file.
-     * @param source Source file.
+     * Fetches upstream string from soruce filepath.
+     * @param source Source filepath.
      * @returns Upstream string.
      */
-    async fetchUpstreamFromSource(source: Bun.BunFile): Promise<string> {
+    async fetchUpstreamFromFilepath(filepath: string): Promise<string> {
         // Fingerprints source
-        const fingerprint = fingerprinter.fingerprint(source.name!);
+        const fingerprint = fingerprinter.fingerprint(filepath);
         
         // Creates URL
         const url = new URL("https://api.curseforge.com/v1/fingerprints");

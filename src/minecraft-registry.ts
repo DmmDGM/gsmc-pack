@@ -76,7 +76,7 @@ export default abstract class MinecraftRegistry {
         };
 
         // Creates download
-        return { directory, dispose, get disposed() { return disposed; }, download, filename, hash, progress, size, url };
+        return { directory, dispose, get disposed() { return disposed; }, download, filename, hash, progress, size, upstream, url };
     }
 
     /**
@@ -176,7 +176,7 @@ export default abstract class MinecraftRegistry {
     // Declares abstract methods
     abstract readonly registry: MinecraftRegistryEnum;
     abstract fetchIDFromSlug(slug: string): Promise<string>;
-    abstract fetchUpstreamFromSource(source: Bun.BunFile): Promise<string>;
+    abstract fetchUpstreamFromFilepath(filepath: string): Promise<string>;
     abstract fetchUpstreamFromTag(id: string, tag: string): Promise<string>;
     abstract fetchUpstreamsFromID(minecraft: string, id: string): Promise<string[]>;
 }

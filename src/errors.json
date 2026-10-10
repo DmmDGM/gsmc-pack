@@ -9,6 +9,7 @@
     "NO_FILEPATH": "",
     "BAD_FILEPATH": "$filepath",
     "BAD_METADATA": "$filepath",
-    "NO_OVERWRITE": "$filepath",
-    "BAD_DOWNLOAD": ""
+    "BAD_DOWNLOAD": "",
+    "OVERWRITE_DANGER": "$filepath",
+    "BAD_QUERY": "$query"
 }
