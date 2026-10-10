@@ -11,5 +11,6 @@
     "BAD_METADATA": "$filepath",
     "BAD_DOWNLOAD": "",
     "OVERWRITE_DANGER": "$filepath",
-    "BAD_QUERY": "$query"
+    "BAD_QUERY": "$query",
+    "NO_KEY": "$filepath"
 }

@@ -1,4 +1,6 @@
 // Imports
+import { homedir as getHomeDirectory } from "node:os";
+import { resolve as resolvePath } from "node:path";
 import errors from "./errors.json";
 import { version } from "../package.json";
 
@@ -261,4 +263,15 @@ export function error(code: keyof typeof errors, values: { [ Value in string ]: 
     // Format error
     const message = errors[code] ?? `This is a fallback error message. Error code '${code}' does not exist.`;
     return message.replaceAll(/\$(\w+)/g, (match, value) => value in values ? String(values[value]) : match);
+}
+
+/**
+ * Reads '~/.gsmc-pack/curse-forge.key' file.
+ * @returns CurseForge API key.
+ */
+export async function readCurseForgeAPIKey(): Promise<string> {
+    // Reads key
+    const filepath = resolvePath(getHomeDirectory(), "./.gsmc-pack/curse-forge.key");
+    try { return await Bun.file(filepath).text(); }
+    catch { throw new Error(error("NO_KEY", { filepath })); }
 }
