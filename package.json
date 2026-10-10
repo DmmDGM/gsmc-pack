@@ -1,5 +1,8 @@
 {
-    "bin": "src/gsmc-pack.ts",
+    "bin": {
+        "gsmc-pack": "src/gsmc-pack.ts",
+        "gsmcp": "src/gsmc-pack.ts"
+    },
     "dependencies": {
         "@inquirer/prompts": "^8.7.2",
         "@meza/curseforge-fingerprint": "^1.1.43",
