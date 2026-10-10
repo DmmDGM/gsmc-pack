@@ -68,7 +68,7 @@ export enum MinecraftTypeEnum {
 /** GSMC-Pack JSON. */
 export interface GSMCPackJSON {
     /** Pack addons. */
-    addons: { [ Hash in string ]: string; };
+    addons: Record<string, string>;
     /** Pack authors. */
     authors: string[];
     /** Pack description. */
@@ -181,9 +181,7 @@ export const GSMCPACK_BUILD = version;
 export const GSMCPACK_ERRORS = errors;
 
 /** Minecraft loader to type map. */
-export const MINECRAFT_LOADER_TYPE_MAP: {
-    readonly [ Loader in MinecraftLoaderEnum ]: MinecraftTypeEnum;
-} = {
+export const MINECRAFT_LOADER_TYPE_MAP: Record<MinecraftLoaderEnum, MinecraftTypeEnum> = {
     // Datapacks
     /** Built-in datapack loader type. */
     [ MinecraftLoaderEnum.DATAPACK ]: MinecraftTypeEnum.DATAPACK,
@@ -222,9 +220,7 @@ export const MINECRAFT_LOADER_TYPE_MAP: {
 };
 
 /** Minecraft type to loaders map. */
-export const MINECRAFT_TYPE_LOADERS_MAP: {
-    readonly [ Type in MinecraftTypeEnum ]: readonly MinecraftLoaderEnum[];
-} = {
+export const MINECRAFT_TYPE_LOADERS_MAP: Record<MinecraftTypeEnum, MinecraftLoaderEnum[]> = {
     /** Datapack loaders. */
     [ MinecraftTypeEnum.DATAPACK ]: [
         MinecraftLoaderEnum.DATAPACK
@@ -259,7 +255,7 @@ export const MINECRAFT_TYPE_LOADERS_MAP: {
  * @param values Dynamic values.
  * @returns Error message.
  */
-export function error(code: keyof typeof errors, values: { [ Value in string ]: unknown; } = {}): string {
+export function error(code: keyof typeof errors, values: Record<string, unknown> = {}): string {
     // Format error
     const message = errors[code] ?? `This is a fallback error message. Error code '${code}' does not exist.`;
     return message.replaceAll(/\$(\w+)/g, (match, value) => value in values ? String(values[value]) : match);

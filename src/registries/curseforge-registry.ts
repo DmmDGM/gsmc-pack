@@ -6,9 +6,9 @@ import {
     MINECRAFT_LOADER_TYPE_MAP,
     MinecraftLoaderEnum,
     MinecraftRegistryEnum,
-    MinecraftTypeEnum
+    MinecraftTypeEnum,
+    readCurseForgeAPIKey
 } from "../common";
-import { readCurseForgeAPIKey } from "../config";
 import MinecraftRegistry from "../minecraft-registry";
 
 /** CurseForge registry. */
