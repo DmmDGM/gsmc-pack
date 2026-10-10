@@ -28,7 +28,7 @@ export async function displayAddonDetails(addon: MinecraftAddon, detailed: boole
     const pack = await instance.readPackJSON();
     if(addon.upstream !== null) {
         const { hash } = MinecraftRegistry.loadUpstream(addon.upstream);
-        const type = MinecraftRegistry.loadUpstreamBestType(addon.upstream, pack.environment);
+        const type = MinecraftRegistry.inferUpstreamType(addon.upstream, pack.environment);
         const compatible = MinecraftRegistry.satisfiesEnvironment(addon.upstream, pack.environment);
         const _type = chalk.bold.green(`[${type}]`);
         const _hash = chalk.cyan(hash);
@@ -75,15 +75,15 @@ export async function displayAddonDetails(addon: MinecraftAddon, detailed: boole
     // Prints upstream
     if(addon.upstream !== null) {
         const { id, loaders, minecrafts, registry, tag } = MinecraftRegistry.loadUpstream(addon.upstream);
-        const type = MinecraftRegistry.loadUpstreamBestType(addon.upstream, pack.environment);
+        const type = MinecraftRegistry.inferUpstreamType(addon.upstream, pack.environment);
         const _minecrafts = chalk.red(chalk.bold("Minecrafts: ") + minecrafts.map((minecraft) => {
             return minecraft === pack.environment.minecraft ? chalk.inverse(minecraft) : minecraft;
         }).join(", "));
         const _loaders = chalk.blue(chalk.bold("Loaders: ") + loaders.map((loader) => {
             return loader === {
                 [ MinecraftTypeEnum.DATAPACK ]: pack.environment.datapackLoader,
-                [ MinecraftTypeEnum.MOD ]: pack.environment.runtimeLoader,
-                [ MinecraftTypeEnum.PLUGIN ]: pack.environment.runtimeLoader,
+                [ MinecraftTypeEnum.MOD ]: pack.environment.custompackLoader,
+                [ MinecraftTypeEnum.PLUGIN ]: pack.environment.custompackLoader,
                 [ MinecraftTypeEnum.RESOURCEPACK ]: pack.environment.resourcepackLoader,
                 [ MinecraftTypeEnum.SHADERPACK ]: pack.environment.shaderpackLoader,
             }[type] ? chalk.inverse(loader) : loader;

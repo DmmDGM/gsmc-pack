@@ -1,25 +1,31 @@
 // Imports
 import fingerprinter from "@meza/curseforge-fingerprint";
-import { readCurseForgeAPIKey } from "./config";
-import { error } from "./error";
-import { MinecraftLoaderEnum, MinecraftRegistry, MinecraftRegistryEnum, MinecraftTypeEnum } from "./minecraft-registry";
-import { version as build } from "../package.json";
+import {
+    error,
+    GSMCPACK_BUILD,
+    MINECRAFT_LOADER_TYPE_MAP,
+    MinecraftLoaderEnum,
+    MinecraftRegistryEnum,
+    MinecraftTypeEnum
+} from "../common";
+import { readCurseForgeAPIKey } from "../config";
+import MinecraftRegistry from "../minecraft-registry";
 
 /** CurseForge registry. */
-export class CurseForgeRegistry extends MinecraftRegistry {
+export default class CurseForgeRegistry extends MinecraftRegistry {
     /** CurseForge registry. */
-    readonly type = MinecraftRegistryEnum.CURSEFORGE;
+    readonly registry = MinecraftRegistryEnum.CURSEFORGE;
 
     /**
      * Creates GET request to API.
      * @param url URL object.
      * @returns API response.
      */
-    async createGetRequest(url: URL): Promise<Response> {
+    private async createGetRequest(url: URL): Promise<Response> {
         // Creates headers
         const headers = new Headers();
         headers.append("accept", "application/json");
-        headers.append("user-agent", `DmmDGM/gsmc-pack/${build} (dmmdgm@dmmdgm.dev)`);
+        headers.append("user-agent", `DmmDGM/gsmc-pack/${GSMCPACK_BUILD} (dmmdgm@dmmdgm.dev)`);
         headers.append("x-api-key", await readCurseForgeAPIKey());
 
         // Makes request
@@ -42,12 +48,12 @@ export class CurseForgeRegistry extends MinecraftRegistry {
      * @param payload Request payload.
      * @returns API response.
      */
-    async createPostRequest(url: URL, payload: unknown): Promise<Response> {
+    private async createPostRequest(url: URL, payload: unknown): Promise<Response> {
         // Creates headers
         const headers = new Headers();
         headers.append("accept", "application/json");
         headers.append("content-type", "application/json");
-        headers.append("user-agent", `DmmDGM/gsmc-pack/${build} (dmmdgm@dmmdgm.dev)`);
+        headers.append("user-agent", `DmmDGM/gsmc-pack/${GSMCPACK_BUILD} (dmmdgm@dmmdgm.dev)`);
         headers.append("x-api-key", await readCurseForgeAPIKey());
 
         // Creates body
@@ -146,7 +152,7 @@ export class CurseForgeRegistry extends MinecraftRegistry {
             id: match.id.toString(),
             loaders: loaders,
             minecrafts: match.file.gameVersions,
-            registry: this.type,
+            registry: this.registry,
             tag: match.file.id.toString(),
             types: types,
             url: match.file.downloadUrl ?? `https://www.curseforge.com/api/v1/mods/${match.id}/files/${match.file.id}/download`
@@ -192,7 +198,7 @@ export class CurseForgeRegistry extends MinecraftRegistry {
             id: data.modId.toString(),
             loaders: loaders,
             minecrafts: data.gameVersions,
-            registry: this.type,
+            registry: this.registry,
             tag: data.id.toString(),
             types: types,
             url: data.downloadUrl ?? `https://www.curseforge.com/api/v1/mods/${data.modId}/files/${data.id}/download`
@@ -241,7 +247,7 @@ export class CurseForgeRegistry extends MinecraftRegistry {
                 id: entry.modId.toString(),
                 loaders: loaders,
                 minecrafts: entry.gameVersions,
-                registry: this.type,
+                registry: this.registry,
                 types: types,
                 tag: entry.id.toString(),
                 url: entry.downloadUrl ?? `https://www.curseforge.com/api/v1/mods/${entry.modId}/files/${entry.id}/download`
@@ -254,50 +260,88 @@ export class CurseForgeRegistry extends MinecraftRegistry {
      * @param metafiles Addon metafiles from CurseForge.
      * @returns Upstream environment.
      */
-    inferUpstreamEnvironment(metafiles: { name: string; }[]): {
+    private inferUpstreamEnvironment(metafiles: { name: string; }[]): {
         loaders: MinecraftLoaderEnum[];
         types: MinecraftTypeEnum[];
     } {
         // Infers loaders
-        const loaders: MinecraftLoaderEnum[] = [];
-        if(metafiles.some((metafile) => metafile.name === "fabric.mod.json")) loaders.push(MinecraftLoaderEnum.FABRIC);
-        if(metafiles.some((metafile) => metafile.name === "mods.toml")) loaders.push(MinecraftLoaderEnum.FORGE);
-        if(metafiles.some((metafile) => metafile.name === "neoforge.mods.toml")) loaders.push(MinecraftLoaderEnum.NEOFORGE);
-        if(metafiles.some((metafile) => metafile.name === "quilt.mod.json")) loaders.push(MinecraftLoaderEnum.QUILT);
-        if(metafiles.some((metafile) => metafile.name === "paper-plugin.yml")) loaders.push(MinecraftLoaderEnum.PAPER);
-        else if(metafiles.some((metafile) => metafile.name === "plugin.yml")) loaders.push(
-            MinecraftLoaderEnum.BUKKIT,
-            MinecraftLoaderEnum.PAPER,
-            MinecraftLoaderEnum.PURPUR,
-            MinecraftLoaderEnum.SPIGOT
-        );
-        if(metafiles.some((metafile) => metafile.name === "shaders")) loaders.push(MinecraftLoaderEnum.IRIS, MinecraftLoaderEnum.OPTIFINE);
-        if(metafiles.some((metafile) => metafile.name === "pack.mcmeta")) {
-            if(metafiles.some((metafile) => metafile.name === "data")) loaders.push(MinecraftLoaderEnum.DATAPACK);
-            else if(metafiles.some((metafile) => metafile.name === "assets")) loaders.push(MinecraftLoaderEnum.MINECRAFT);
+        const loaders = new Set<MinecraftLoaderEnum>();
+        for(const metafile of metafiles) {
+            switch(metafile.name) {
+                case "fabric.mod.json": {
+                    loaders.add(MinecraftLoaderEnum.FABRIC);
+                    break;
+                }
+                case "mods.toml": {
+                    loaders.add(MinecraftLoaderEnum.FORGE);
+                    break;
+                }
+                case "neoforge.mods.toml": {
+                    loaders.add(MinecraftLoaderEnum.NEOFORGE);
+                    break;
+                }
+                case "pack.mcmeta": {
+                    if(metafiles.some((submetafile) => submetafile.name === "data")) {
+                        loaders.add(MinecraftLoaderEnum.DATAPACK);
+                        break;
+                    }
+                    if(metafiles.some((submetafile) => submetafile.name === "assets")) {
+                        loaders.add(MinecraftLoaderEnum.RESOURCEPACK);
+                        break;
+                    }
+                    break;
+                }
+                case "paper-plugin.yml": {
+                    loaders.add(MinecraftLoaderEnum.PAPER);
+                    break;
+                }
+                case "plugin.yml": {
+                    loaders.add(MinecraftLoaderEnum.BUKKIT);
+                    loaders.add(MinecraftLoaderEnum.PAPER);
+                    loaders.add(MinecraftLoaderEnum.PURPUR);
+                    loaders.add(MinecraftLoaderEnum.SPIGOT);
+                    break;
+                }
+                case "shaders": {
+                    loaders.add(MinecraftLoaderEnum.IRIS);
+                    loaders.add(MinecraftLoaderEnum.OPTIFINE);
+                    break;
+                }
+                case "quilt.mod.json": {
+                    loaders.add(MinecraftLoaderEnum.QUILT);
+                    break;
+                }
+            }
         }
 
         // Infers types
-        const types: MinecraftTypeEnum[] = [];
-        if(loaders.some((loader) => [
-            MinecraftLoaderEnum.FABRIC,
-            MinecraftLoaderEnum.FORGE,
-            MinecraftLoaderEnum.NEOFORGE,
-            MinecraftLoaderEnum.QUILT
-        ].includes(loader))) types.push(MinecraftTypeEnum.MOD);
-        if(loaders.some((loader) => [
-            MinecraftLoaderEnum.PAPER,
-            MinecraftLoaderEnum.SPIGOT
-        ].includes(loader))) types.push(MinecraftTypeEnum.PLUGIN);
-        if(loaders.some((loader) => loader === MinecraftLoaderEnum.DATAPACK)) types.push(MinecraftTypeEnum.DATAPACK);
-        if(loaders.some((loader) => loader === MinecraftLoaderEnum.MINECRAFT)) types.push(MinecraftTypeEnum.RESOURCEPACK);
-        if(loaders.some((loader) => [
-            MinecraftLoaderEnum.IRIS,
-            MinecraftLoaderEnum.OPTIFINE,
-            MinecraftLoaderEnum.VANILLA
-        ].includes(loader))) types.push(MinecraftTypeEnum.SHADERPACK);
+        const types = new Set<MinecraftTypeEnum>();
+        for(const loader of loaders) {
+            switch(MINECRAFT_LOADER_TYPE_MAP[loader]) {
+                case MinecraftTypeEnum.DATAPACK: {
+                    types.add(MinecraftTypeEnum.DATAPACK);
+                    break;
+                }
+                case MinecraftTypeEnum.MOD: {
+                    types.add(MinecraftTypeEnum.MOD);
+                    break;
+                }
+                case MinecraftTypeEnum.PLUGIN: {
+                    types.add(MinecraftTypeEnum.PLUGIN);
+                    break;
+                }
+                case MinecraftTypeEnum.RESOURCEPACK: {
+                    types.add(MinecraftTypeEnum.RESOURCEPACK);
+                    break;
+                }
+                case MinecraftTypeEnum.SHADERPACK: {
+                    types.add(MinecraftTypeEnum.SHADERPACK);
+                    break;
+                }
+            }
+        }
         
         // Returns environment
-        return { loaders, types };
+        return { loaders: Array.from(loaders), types: Array.from(types) };
     }
 }

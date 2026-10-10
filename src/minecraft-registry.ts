@@ -1,107 +1,20 @@
 // Imports
-import { mkdtemp as makeTemporaryDirectory } from "node:fs/promises";
+import { mkdtemp as makeTemporaryDirectory, rmdir as removeDirectory } from "node:fs/promises";
 import { tmpdir as getTemporaryDirectory } from "node:os";
 import { resolve as resolvePath } from "node:path";
-import { error } from "./error";
-import { MinecraftDownload } from "./minecraft-download";
-
-/** Supported Minecraft loaders in GSMC-Pack. */
-export enum MinecraftLoaderEnum {
-    // Datapacks
-    /** Built-in datapack loader. */
-    DATAPACK = "DATAPACK",
-
-    // Mods
-    /** Fabric mod loader. */
-    FABRIC = "FABRIC",
-    /** Forge mod loader. */
-    FORGE = "FORGE",
-    /** NeoForge mod loader. */
-    NEOFORGE = "NEOFORGE",
-    /** Quilt mod loader. */
-    QUILT = "QUILT",
-
-    // Plugins
-    /** Bukkit plugin loader. */
-    BUKKIT = "BUKKIT",
-    /** Paper plugin loader. */
-    PAPER = "PAPER",
-    /** Purpur plugin loader. */
-    PURPUR = "PURPUR",
-    /** Spigot plugin loader. */
-    SPIGOT = "SPIGOT",
-
-    // Resourcepacks
-    /** Built-In resourcepack loader. */
-    MINECRAFT = "MINECRAFT",
-
-    // Shaderpacks
-    /** Iris shader loader. */
-    IRIS = "IRIS",
-    /** OptiFine shader loader. */
-    OPTIFINE = "OPTIFINE",
-    /** Built-In shader loader. */
-    VANILLA = "VANILLA"
-}
-
-/** Supported Minecraft registries in GSMC-Pack. */
-export enum MinecraftRegistryEnum {
-    /** CurseForge registry. */
-    CURSEFORGE = "CURSEFORGE",
-    /** Modrinth registry. */
-    MODRINTH = "MODRINTH"
-}
-
-/** Supported Minecraft types in GSMC-Pack. */
-export enum MinecraftTypeEnum {
-    /** Datapack addon. */
-    DATAPACK = "DATAPACK",
-    /** Mod addon. */
-    MOD = "MOD",
-    /** Plugin addon. */
-    PLUGIN = "PLUGIN",
-    /** Resourcepack addon. */
-    RESOURCEPACK = "RESOURCEPACK",
-    /** Shaderpack addon. */
-    SHADERPACK = "SHADERPACK"
-}
-
-/** Minecraft Environment. */
-export interface MinecraftEnvironment {
-    /** Preferred datapack loader. */
-    datapackLoader: MinecraftLoaderEnum;
-    /** Preferred Minecraft version. */
-    minecraft: string;
-    /** Preferred resourcepack loader. */
-    resourcepackLoader: MinecraftLoaderEnum;
-    /** Preferred mod / plugin loader. */
-    runtimeLoader: MinecraftLoaderEnum;
-    /** Preferred shaderpack loader. */
-    shaderpackLoader: MinecraftLoaderEnum;
-}
-
-/** Minecraft upstream. */
-export interface MinecraftUpstream {
-    /** SHA-1 hash. */
-    hash: string;
-    /** Unique registry ID. */
-    id: string;
-    /** Supported Minecraft loaders. */
-    loaders: MinecraftLoaderEnum[];
-    /** Supported Minecraft versions. */
-    minecrafts: string[];
-    /** Minecraft registry. */
-    registry: MinecraftRegistryEnum;
-    /** Unique registry tag. */
-    tag: string;
-    /** Supported Minecraft types. */
-    types: MinecraftTypeEnum[];
-    /** Download URL. */
-    url: string;
-}
+import {
+    error,
+    MINECRAFT_LOADER_TYPE_MAP,
+    MinecraftDownload,
+    MinecraftEnvironment,
+    MinecraftLoaderEnum,
+    MinecraftRegistryEnum,
+    MinecraftTypeEnum,
+    MinecraftUpstream
+} from "./common";
 
 /** Minecraft registry. */
-export abstract class MinecraftRegistry {
+export default abstract class MinecraftRegistry {
     /**
      * Downloads source file from upstream string.
      * @param upstream Upstream string.
@@ -113,13 +26,57 @@ export abstract class MinecraftRegistry {
 
         // Makes request
         const response = await fetch(url);
-        if(!response.ok) throw new Error(error("DOWNLOAD_BAD_UPSTREAM"));
+        if(!response.ok) throw new Error(error("BAD_UPSTREAM", { upstream }));
+
+        // Estimates size
+        const size = Number(response.headers.get("content-length"));
+        if(isNaN(size)) throw new Error(error("BAD_UPSTREAM", { upstream }));
+
+        // Makes download filename
+        const filename = decodeURIComponent(response.url).split("/").at(-1) ?? null;
+        if(filename === null) throw new Error(error("BAD_UPSTREAM", { upstream }));
+
+        // Makes download directory
+        const directory = await makeTemporaryDirectory(resolvePath(getTemporaryDirectory(), "gsmc-pack-"));
+        
+        // Makes download promise
+        const download = new Promise<ArrayBuffer>(async (resolve, reject) => {
+            // Writes response
+            await Bun.write(resolvePath(directory, filename), response);
+
+            // Verifies hash
+            const buffer = await Bun.file(resolvePath(directory, filename)).arrayBuffer();
+            const fileHash = Bun.CryptoHasher.hash("sha1", buffer).toHex();
+            if(hash !== fileHash) return reject(error("BAD_UPSTREAM", { upstream }));
+
+            // Resolves buffer
+            return resolve(buffer);
+        });
+
+        // Makes progress helper
+        const progress = async (): Promise<number> => {
+            // Checks download progress
+            try {
+                const stat = await Bun.file(resolvePath(directory, filename)).stat();
+                return stat.size;
+            }
+            catch { throw new Error(error("BAD_PROGRESS")); }
+        };
+
+        // Makes dispose helper
+        let disposed: boolean = false;
+        const dispose = async (): Promise<void> => {
+            // Disposes download file
+            try {
+                await Bun.file(resolvePath(directory, filename)).unlink();
+                await removeDirectory(directory);
+            }
+            catch { throw new Error(error("BAD_DISPOSE")); }
+            finally { disposed = true; }
+        };
 
         // Creates download
-        const filename = decodeURIComponent(response.url).split("/").pop()!;
-        const directory = await makeTemporaryDirectory(resolvePath(getTemporaryDirectory(), "gsmc-pack-"));
-        const file = Bun.file(resolvePath(directory, filename));
-        return new MinecraftDownload(file, directory, filename, hash, response);
+        return { directory, dispose, get disposed() { return disposed; }, download, filename, hash, progress, size, url };
     }
 
     /**
@@ -127,8 +84,9 @@ export abstract class MinecraftRegistry {
      * @param upstream Upstream.
      * @returns Upstream string.
      */
-    static dumpUpstream({ hash, id, minecrafts, loaders, registry, tag, types, url }: MinecraftUpstream): string {
+    static dumpUpstream(upstream: MinecraftUpstream): string {
         // Creates upstream string
+        const { hash, id, minecrafts, loaders, registry, tag, types, url } = upstream;
         return [ registry, minecrafts.join(";"), types.join(";"), loaders.join(";"), id, tag, hash, url ].join("::");
     }
 
@@ -143,12 +101,38 @@ export abstract class MinecraftRegistry {
 
         // Makes request
         const response = await fetch(url, { method: "HEAD" });
-        if(!response.ok) throw new Error(error("ESTIMATE_BAD_UPSTREAM"));
+        if(!response.ok) throw new Error(error("BAD_UPSTREAM"));
 
         // Estimates size
         const size = Number(response.headers.get("content-length"));
-        if(isNaN(size)) throw new Error(error("ESTIMATE_BAD_UPSTREAM"));
+        if(isNaN(size)) throw new Error(error("BAD_UPSTREAM"));
         return size;
+    }
+
+    /**
+     * Infers upstream type from upstream string.
+     * @param upstream Upstream string.
+     * @returns Upstream type.
+     */
+    static inferUpstreamType(upstream: string, environment: MinecraftEnvironment): MinecraftTypeEnum {
+        // Loads upstream
+        const { types } = MinecraftRegistry.loadUpstream(upstream);
+        
+        // Infers upstream type
+        if(MINECRAFT_LOADER_TYPE_MAP[environment.custompackLoader] === MinecraftTypeEnum.PLUGIN) {
+            if(types.includes(MinecraftTypeEnum.PLUGIN)) return MinecraftTypeEnum.PLUGIN;
+            if(types.includes(MinecraftTypeEnum.DATAPACK)) return MinecraftTypeEnum.DATAPACK;
+        }
+        if(MINECRAFT_LOADER_TYPE_MAP[environment.custompackLoader] === MinecraftTypeEnum.MOD) {
+            if(types.includes(MinecraftTypeEnum.MOD)) return MinecraftTypeEnum.MOD;
+            if(types.includes(MinecraftTypeEnum.DATAPACK)) return MinecraftTypeEnum.DATAPACK;
+        }
+        if(types.includes(MinecraftTypeEnum.DATAPACK)) return MinecraftTypeEnum.DATAPACK;
+        if(types.includes(MinecraftTypeEnum.MOD)) return MinecraftTypeEnum.MOD;
+        if(types.includes(MinecraftTypeEnum.PLUGIN)) return MinecraftTypeEnum.PLUGIN;
+        if(types.includes(MinecraftTypeEnum.RESOURCEPACK)) return MinecraftTypeEnum.RESOURCEPACK;
+        if(types.includes(MinecraftTypeEnum.SHADERPACK)) return MinecraftTypeEnum.SHADERPACK;
+        throw new Error(error("BAD_UPSTREAM"));
     }
 
     /**
@@ -158,35 +142,12 @@ export abstract class MinecraftRegistry {
      */
     static loadUpstream(upstream: string): MinecraftUpstream {
         // Creates upstream
-        const [ registry, _minecrafts, _types, _loaders, id, tag, hash, url ] = upstream.split("::");
+        const [ _registry, _minecrafts, _types, _loaders, id, tag, hash, url ] = upstream.split("::");
+        const registry = _registry as MinecraftRegistryEnum;
         const loaders = _loaders.split(";") as MinecraftLoaderEnum[];
         const minecrafts = _minecrafts.split(";");
         const types = _types.split(";") as MinecraftTypeEnum[];
-        return { hash, loaders, minecrafts, id, registry: registry as MinecraftRegistryEnum, tag, types, url };
-    }
-
-    /**
-     * Loads upstream best type from upstream string.
-     * @param upstream Upstream string.
-     * @returns Upstream type.
-     */
-    static loadUpstreamBestType(upstream: string, environment: MinecraftEnvironment): MinecraftTypeEnum {
-        // Loads upstream
-        const { types } = MinecraftRegistry.loadUpstream(upstream);
-        
-        // Loads upstream type
-        if([
-            MinecraftLoaderEnum.BUKKIT,
-            MinecraftLoaderEnum.PAPER,
-            MinecraftLoaderEnum.PURPUR,
-            MinecraftLoaderEnum.SPIGOT,
-        ].includes(environment.runtimeLoader) && types.includes(MinecraftTypeEnum.PLUGIN)) return MinecraftTypeEnum.PLUGIN;
-        if(types.includes(MinecraftTypeEnum.MOD)) return MinecraftTypeEnum.MOD;
-        if(types.includes(MinecraftTypeEnum.PLUGIN)) return MinecraftTypeEnum.PLUGIN;
-        if(types.includes(MinecraftTypeEnum.SHADERPACK)) return MinecraftTypeEnum.SHADERPACK;
-        if(types.includes(MinecraftTypeEnum.RESOURCEPACK)) return MinecraftTypeEnum.RESOURCEPACK;
-        if(types.includes(MinecraftTypeEnum.DATAPACK)) return MinecraftTypeEnum.DATAPACK;
-        throw new Error(error("LOAD_BAD_UPSTREAM"));
+        return { hash, loaders, minecrafts, id, registry, tag, types, url };
     }
 
     /**
@@ -196,23 +157,24 @@ export abstract class MinecraftRegistry {
      * @returns Whether upstream string satisfies Minecraft environment.
      */
     static satisfiesEnvironment(upstream: string, environment: MinecraftEnvironment): boolean {
-        // Checks Minecrafts
+        // Loads upstream
         const { loaders, minecrafts } = MinecraftRegistry.loadUpstream(upstream);
+        
+        // Checks Minecrafts
         if(!minecrafts.includes(environment.minecraft)) return false;
 
         // Checks loaders
-        const type = MinecraftRegistry.loadUpstreamBestType(upstream, environment);
-        switch(type) {
+        switch(MinecraftRegistry.inferUpstreamType(upstream, environment)) {
             case MinecraftTypeEnum.DATAPACK: return loaders.includes(environment.datapackLoader);
-            case MinecraftTypeEnum.MOD: return loaders.includes(environment.runtimeLoader);
-            case MinecraftTypeEnum.PLUGIN: return loaders.includes(environment.runtimeLoader);
+            case MinecraftTypeEnum.MOD: return loaders.includes(environment.custompackLoader);
+            case MinecraftTypeEnum.PLUGIN: return loaders.includes(environment.custompackLoader);
             case MinecraftTypeEnum.RESOURCEPACK: return loaders.includes(environment.resourcepackLoader);
             case MinecraftTypeEnum.SHADERPACK: return loaders.includes(environment.shaderpackLoader);
         }
     }
 
     // Declares abstract methods
-    abstract readonly type: MinecraftRegistryEnum;
+    abstract readonly registry: MinecraftRegistryEnum;
     abstract fetchIDFromSlug(slug: string): Promise<string>;
     abstract fetchUpstreamFromSource(source: Bun.BunFile): Promise<string>;
     abstract fetchUpstreamFromTag(id: string, tag: string): Promise<string>;

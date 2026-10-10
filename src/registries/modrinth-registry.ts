@@ -1,22 +1,28 @@
 // Imports
-import { error } from "./error";
-import { MinecraftLoaderEnum, MinecraftRegistry, MinecraftRegistryEnum, MinecraftTypeEnum } from "./minecraft-registry";
-import { version as build } from "../package.json";
+import {
+    error,
+    GSMCPACK_BUILD,
+    MINECRAFT_LOADER_TYPE_MAP,
+    MinecraftLoaderEnum,
+    MinecraftRegistryEnum,
+    MinecraftTypeEnum
+} from "../common";
+import MinecraftRegistry from "../minecraft-registry";
 
 /** Modrinth registry. */
-export class ModrinthRegistry extends MinecraftRegistry {
+export default class ModrinthRegistry extends MinecraftRegistry {
     /** Modrinth registry. */
-    readonly type = MinecraftRegistryEnum.MODRINTH;
+    readonly registry = MinecraftRegistryEnum.MODRINTH;
 
     /**
      * Creates GET request to API.
      * @param url URL object.
      * @returns API response.
      */
-    async createGetRequest(url: URL): Promise<Response> {
+    private async createGetRequest(url: URL): Promise<Response> {
         // Creates headers
         const headers = new Headers();
-        headers.append("user-agent", `DmmDGM/gsmc-pack/${build} (dmmdgm@dmmdgm.dev)`);
+        headers.append("user-agent", `DmmDGM/gsmc-pack/${GSMCPACK_BUILD} (dmmdgm@dmmdgm.dev)`);
 
         // Makes request
         for(let i = 0; i < 5; i++) {
@@ -93,7 +99,7 @@ export class ModrinthRegistry extends MinecraftRegistry {
             id: project.project_id,
             loaders: loaders,
             minecrafts: project.game_versions,
-            registry: this.type,
+            registry: this.registry,
             tag: project.id,
             types: types,
             url: file.url
@@ -137,7 +143,7 @@ export class ModrinthRegistry extends MinecraftRegistry {
             id: project.project_id,
             loaders: loaders,
             minecrafts: project.game_versions,
-            registry: this.type,
+            registry: this.registry,
             tag: project.id,
             types: types,
             url: file.url
@@ -185,7 +191,7 @@ export class ModrinthRegistry extends MinecraftRegistry {
                 id: project.project_id,
                 loaders: loaders,
                 minecrafts: project.game_versions,
-                registry: this.type,
+                registry: this.registry,
                 tag: project.id,
                 types: types,
                 url: file.url
@@ -198,49 +204,97 @@ export class ModrinthRegistry extends MinecraftRegistry {
      * @param projectLoaders Project loaders from Modrinth.
      * @returns Upstream environment.
      */
-    inferUpstreamEnvironment(projectLoaders: string[]): {
+    private inferUpstreamEnvironment(projectLoaders: string[]): {
         loaders: MinecraftLoaderEnum[];
         types: MinecraftTypeEnum[];
     } {
         // Infers loaders
-        const loaders: MinecraftLoaderEnum[] = [];
-        if(projectLoaders.includes("bukkit")) loaders.push(MinecraftLoaderEnum.BUKKIT);
-        if(projectLoaders.includes("datapack")) loaders.push(MinecraftLoaderEnum.DATAPACK);
-        if(projectLoaders.includes("fabric")) loaders.push(MinecraftLoaderEnum.FABRIC);
-        if(projectLoaders.includes("forge")) loaders.push(MinecraftLoaderEnum.FORGE);
-        if(projectLoaders.includes("iris")) loaders.push(MinecraftLoaderEnum.IRIS);
-        if(projectLoaders.includes("minecraft")) loaders.push(MinecraftLoaderEnum.MINECRAFT);
-        if(projectLoaders.includes("neoforge")) loaders.push(MinecraftLoaderEnum.NEOFORGE);
-        if(projectLoaders.includes("optifine")) loaders.push(MinecraftLoaderEnum.OPTIFINE);
-        if(projectLoaders.includes("paper")) loaders.push(MinecraftLoaderEnum.PAPER);
-        if(projectLoaders.includes("purpur")) loaders.push(MinecraftLoaderEnum.PURPUR);
-        if(projectLoaders.includes("quilt")) loaders.push(MinecraftLoaderEnum.QUILT);
-        if(projectLoaders.includes("spigot")) loaders.push(MinecraftLoaderEnum.SPIGOT);
-        if(projectLoaders.includes("vanilla")) loaders.push(MinecraftLoaderEnum.VANILLA);
+        const loaders = new Set<MinecraftLoaderEnum>();
+        for(const projectLoader of projectLoaders) {
+            switch(projectLoader) {
+                case "bukkit": {
+                    loaders.add(MinecraftLoaderEnum.BUKKIT);
+                    break;
+                }
+                case "datapack": {
+                    loaders.add(MinecraftLoaderEnum.DATAPACK);
+                    break;
+                }
+                case "fabric": {
+                    loaders.add(MinecraftLoaderEnum.FABRIC);
+                    break;
+                }
+                case "forge": {
+                    loaders.add(MinecraftLoaderEnum.FORGE);
+                    break;
+                }
+                case "iris": {
+                    loaders.add(MinecraftLoaderEnum.IRIS);
+                    break;
+                }
+                case "minecraft": {
+                    loaders.add(MinecraftLoaderEnum.RESOURCEPACK);
+                    break;
+                }
+                case "neoforge": {
+                    loaders.add(MinecraftLoaderEnum.NEOFORGE);
+                    break;
+                }
+                case "optifine": {
+                    loaders.add(MinecraftLoaderEnum.OPTIFINE);
+                    break;
+                }
+                case "paper": {
+                    loaders.add(MinecraftLoaderEnum.PAPER);
+                    break;
+                }
+                case "purpur": {
+                    loaders.add(MinecraftLoaderEnum.PURPUR);
+                    break;
+                }
+                case "quilt": {
+                    loaders.add(MinecraftLoaderEnum.QUILT);
+                    break;
+                }
+                case "spigot": {
+                    loaders.add(MinecraftLoaderEnum.SPIGOT);
+                    break;
+                }
+                case "vanilla": {
+                    loaders.add(MinecraftLoaderEnum.SHADERPACK);
+                    break;
+                }
+            }
+        }
 
         // Infers types
-        const types: MinecraftTypeEnum[] = [];
-        if(loaders.some((loader) => [
-            MinecraftLoaderEnum.FABRIC,
-            MinecraftLoaderEnum.FORGE,
-            MinecraftLoaderEnum.NEOFORGE,
-            MinecraftLoaderEnum.QUILT
-        ].includes(loader))) types.push(MinecraftTypeEnum.MOD);
-        if(loaders.some((loader) => [
-            MinecraftLoaderEnum.BUKKIT,
-            MinecraftLoaderEnum.PAPER,
-            MinecraftLoaderEnum.PURPUR,
-            MinecraftLoaderEnum.SPIGOT
-        ].includes(loader))) types.push(MinecraftTypeEnum.PLUGIN);
-        if(loaders.some((loader) => loader === MinecraftLoaderEnum.DATAPACK)) types.push(MinecraftTypeEnum.DATAPACK);
-        if(loaders.some((loader) => loader === MinecraftLoaderEnum.MINECRAFT)) types.push(MinecraftTypeEnum.RESOURCEPACK);
-        if(loaders.some((loader) => [
-            MinecraftLoaderEnum.IRIS,
-            MinecraftLoaderEnum.OPTIFINE,
-            MinecraftLoaderEnum.VANILLA
-        ].includes(loader))) types.push(MinecraftTypeEnum.SHADERPACK);
+        const types = new Set<MinecraftTypeEnum>();
+        for(const loader of loaders) {
+            switch(MINECRAFT_LOADER_TYPE_MAP[loader]) {
+                case MinecraftTypeEnum.DATAPACK: {
+                    types.add(MinecraftTypeEnum.DATAPACK);
+                    break;
+                }
+                case MinecraftTypeEnum.MOD: {
+                    types.add(MinecraftTypeEnum.MOD);
+                    break;
+                }
+                case MinecraftTypeEnum.PLUGIN: {
+                    types.add(MinecraftTypeEnum.PLUGIN);
+                    break;
+                }
+                case MinecraftTypeEnum.RESOURCEPACK: {
+                    types.add(MinecraftTypeEnum.RESOURCEPACK);
+                    break;
+                }
+                case MinecraftTypeEnum.SHADERPACK: {
+                    types.add(MinecraftTypeEnum.SHADERPACK);
+                    break;
+                }
+            }
+        }
 
         // Returns environment
-        return { loaders, types };
+        return { loaders: Array.from(loaders), types: Array.from(types) };
     }
 }
